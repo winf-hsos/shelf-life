@@ -1,0 +1,12 @@
+Erzeugt am:     2026-11-20 06:59
+Modell:         gpt-image-2.5-flare
+Format:         quer (1536x1024)
+generation_id:  762942d2-41e5-4675-9ff0-664b9f444b36
+Referenzbilder: Probebild des Ladens im Spiellook (nicht im Repository)
+
+Prompt:
+The same cosy corner shop interior in the evening as in the reference image, but with the shelf, the bin, the basket and the crate removed: the warm back wall with two green pendant lamps lit, the glass door on the left with the dark blue street and a street lamp, the window on the right, the wooden counter with the cash register on the far right, wooden floor. The middle of the wall is free and plain. Flat hand-painted illustration with bold dark outlines, soft shading, warm saturated colours, exactly in the style of the reference image. No people, no text, no letters, no logos.
+
+Das Bild ist KI-erzeugt. OpenAI legt C2PA-Metadaten und ein unsichtbares
+Wasserzeichen hinein. Wo es veroeffentlicht wird, gehoert die Herkunft
+genannt - siehe README.md.

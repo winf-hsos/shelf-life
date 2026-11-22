@@ -1,0 +1,13 @@
+Erzeugt am:     2026-11-20 06:59
+Modell:         gpt-image-2.5-flare
+Format:         quadrat (1024x1024)
+generation_id:  bbe0f606-d6d3-470a-aa59-730f6a48876b
+Referenzbilder: Probebild des Ladens im Spiellook (nicht im Repository)
+Hintergrund:    transparent
+
+Prompt:
+Four white yoghurt cups with blue lids and a painted strawberry on the side, two in front and two behind. Flat hand-painted illustration with bold dark outlines, soft shading and warm saturated colours, friendly and readable from far away, exactly in the style of the reference image. Only this object, isolated on a transparent background, centred, filling most of the square, no floor, no shadow, no text, no letters, no logos, no price tags.
+
+Das Bild ist KI-erzeugt. OpenAI legt C2PA-Metadaten und ein unsichtbares
+Wasserzeichen hinein. Wo es veroeffentlicht wird, gehoert die Herkunft
+genannt - siehe README.md.

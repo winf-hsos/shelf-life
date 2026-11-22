@@ -1,0 +1,13 @@
+Erzeugt am:     2026-11-20 11:49
+Modell:         gpt-image-2.5-flare
+Format:         hoch (1024x1536)
+generation_id:  1128c75f-c95c-4fbb-a3a0-2990011250f3
+Referenzbilder: Probebild des Ladens im Spiellook (nicht im Repository)
+Hintergrund:    transparent
+
+Prompt:
+A cartoon student walking to the right, side view, full body, a young Arab man with short dark hair and a trimmed beard, olive bomber jacket, carrying a reusable shopping bag, simple stylised face without detail. Flat hand-painted illustration with bold dark outlines, soft shading and warm saturated colours, friendly and readable from far away, exactly in the style of the reference image. Only this object, isolated on a transparent background, centred, filling most of the square, no floor, no shadow, no text, no letters, no logos, no price tags.
+
+Das Bild ist KI-erzeugt. OpenAI legt C2PA-Metadaten und ein unsichtbares
+Wasserzeichen hinein. Wo es veroeffentlicht wird, gehoert die Herkunft
+genannt - siehe README.md.

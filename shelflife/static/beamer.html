@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shelf Life</title>
+<link rel="stylesheet" href="/static/shelflife.css">
+<style>
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; background: var(--night); color: var(--cream); font-family: var(--font); }
+  #app { height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+
+  /* ---------- top bar: the week, the clock, the money ---------- */
+  #top { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 22px; padding: 10px 20px 8px;
+         background: linear-gradient(#0b1220, #121b30); border-bottom: 3px solid #050a14; }
+  #title { font: 900 26px/1 var(--display); letter-spacing: .5px; color: var(--lamp); white-space: nowrap; }
+  #title small { display: block; font: 700 12px/1.3 var(--font); color: #9fb0cc; letter-spacing: 0; }
+  #week { display: flex; gap: 6px; justify-content: center; }
+  .day { min-width: 92px; padding: 5px 8px 6px; border-radius: 10px; background: #1b2640; border: 2px solid #26324f;
+         text-align: center; opacity: .55; }
+  .day b { display: block; font: 800 17px/1.1 var(--display); }
+  .day span { font-size: 12px; color: #b9c6dd; }
+  .day.past { opacity: .8; }
+  .day.today { opacity: 1; background: var(--lamp); color: #2a1a05; border-color: #fff3c4; transform: translateY(-1px); }
+  .day.today span { color: #4a3510; }
+  #money { display: flex; gap: 18px; align-items: center; }
+  .stat { text-align: right; }
+  .stat b { display: block; font: 900 26px/1 var(--display); font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: #9fb0cc; }
+  .stat.neg b { color: #ff8c7a; }
+
+  #main { display: grid; grid-template-columns: auto 1fr; min-height: 0; }
+
+  /* ---------- the shop scene, in units of 1 % of its width ---------- */
+  #stage { position: relative; display: flex; flex-direction: column; align-items: center; min-width: 0; min-height: 0; background: #2a1708; }
+  #ticker { flex: 1; width: 0; min-width: 100%; min-height: 0; overflow: hidden; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; padding: 10px 14px;
+            background: linear-gradient(#3a2110, #2a1708); border-top: 3px solid #050a14; }
+  #ticker span { font: 700 15px/1 var(--font); padding: 6px 10px; border-radius: 99px; background: #fff8e6; color: #2a1a05; border: 2px solid #2b1d10;
+                 animation: stepin .35s ease-out; white-space: nowrap; }
+  #ticker span b { font-family: var(--display); }
+  #ticker span.off { background: #ffe0dc; }
+  #ticker em { font: 800 13px/1 var(--font); color: #e7c171; font-style: normal; padding: 7px 4px; }
+  #scene { position: relative; background: url(/static/img/room.webp) center / cover; overflow: hidden;
+           --u: 13px; border-right: 4px solid #050a14; }
+  #scene * { box-sizing: border-box; }
+  #dim { position: absolute; inset: 0; background: rgba(8, 14, 32, .0); transition: background .6s; pointer-events: none; z-index: 30; }
+  body.checkin #dim { background: rgba(8, 14, 32, .28); }
+
+  /* clock hanging on the wall */
+  #wallclock { position: absolute; left: 47%; top: 2.2%; transform: translateX(-50%); background: #fff8e6; color: #2a1a05;
+               border: calc(var(--u) * .35) solid #2b1d10; border-radius: calc(var(--u) * 1.2); padding: calc(var(--u) * .3) calc(var(--u) * 1.3);
+               font: 900 calc(var(--u) * 2.4)/1 var(--display); font-variant-numeric: tabular-nums; box-shadow: 0 4px 0 rgba(0,0,0,.25); z-index: 5; }
+  #phase { position: absolute; left: 47%; top: 10.5%; transform: translateX(-50%); z-index: 5; white-space: nowrap;
+           font: 800 calc(var(--u) * 1.25)/1 var(--display); padding: calc(var(--u) * .45) calc(var(--u) * 1.1); border-radius: 99px;
+           background: #2b1d10; color: #fff3c4; border: 2px solid #5a3d1e; }
+  #phase.open { background: var(--ok); color: #fff; border-color: #2c6e3d; }
+  #phase.checkin { background: var(--agent); color: #fff; border-color: #1b4f8f; }
+  #phase .bar { display: inline-block; width: calc(var(--u) * 6); height: calc(var(--u) * .55); border-radius: 9px; background: rgba(255,255,255,.3);
+                margin-left: calc(var(--u) * .6); vertical-align: middle; overflow: hidden; }
+  #phase .bar i { display: block; height: 100%; background: #fff; width: 0%; transition: width .4s linear; }
+
+  /* the shelf */
+  #shelf { position: absolute; left: 21.5%; top: 16%; width: 55.5%; height: 46%; display: grid; grid-template-columns: repeat(3, 1fr);
+           grid-template-rows: repeat(3, 1fr); gap: calc(var(--u) * .45); padding: calc(var(--u) * .55);
+           background: #7a4a22; border: calc(var(--u) * .4) solid #2b1d10; border-radius: calc(var(--u) * .5);
+           box-shadow: inset 0 0 0 calc(var(--u) * .25) #9a5f2c, 0 calc(var(--u) * .6) 0 rgba(0,0,0,.25); z-index: 3; }
+  #shelf::after { content: ""; position: absolute; left: 4%; right: 4%; bottom: calc(var(--u) * -2.4); height: calc(var(--u) * 2.2);
+                  background: linear-gradient(90deg, #2b1d10 0 4%, transparent 4% 96%, #2b1d10 96%); }
+  .cell { position: relative; background: linear-gradient(#4a2a12, #5d3618 70%, #6e4220); border: calc(var(--u) * .22) solid #2b1d10;
+          border-radius: calc(var(--u) * .3); overflow: visible; display: grid; grid-template-columns: 46% 54%; }
+  .cell .pic { position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: calc(var(--u) * .2); }
+  .cell .pic img { max-width: 92%; max-height: 88%; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); transition: opacity .4s, transform .3s; }
+  .cell.empty .pic img { opacity: .15; filter: grayscale(1); }
+  .cell .qty { position: absolute; left: calc(var(--u) * .2); top: calc(var(--u) * .2); min-width: calc(var(--u) * 2.4); text-align: center;
+               background: #fff8e6; color: #2a1a05; border: 2px solid #2b1d10; border-radius: 99px; padding: 0 calc(var(--u) * .4);
+               font: 900 calc(var(--u) * 1.25)/1.35 var(--display); font-variant-numeric: tabular-nums; z-index: 2; }
+  .cell.empty .qty { background: #444; color: #ccc; }
+  .cell .info { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * .25); padding: calc(var(--u) * .25) calc(var(--u) * .35) calc(var(--u) * .25) 0; min-width: 0; }
+  .cell .name { font: 800 calc(var(--u) * 1.1)/1.05 var(--display); color: #fff3c4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tag { align-self: flex-start; position: relative; background: #fffdf5; color: #2a1a05; border: 2px solid #2b1d10; border-radius: 4px 10px 10px 4px;
+         padding: 0 calc(var(--u) * .45) 0 calc(var(--u) * .7); font: 900 calc(var(--u) * 1.25)/1.35 var(--display); font-variant-numeric: tabular-nums; }
+  .tag::before { content: ""; position: absolute; left: calc(var(--u) * .2); top: 50%; width: calc(var(--u) * .3); height: calc(var(--u) * .3);
+                 border-radius: 50%; background: #2b1d10; transform: translateY(-50%); }
+  .tag s { font-weight: 700; opacity: .55; margin-right: calc(var(--u) * .25); font-size: .85em; }
+  .tag.off { background: var(--due); color: #fff; transform-origin: 0 50%; }
+  .tag.swing { animation: swing 1.1s ease-out; }
+  @keyframes swing { 0% { transform: rotate(-60deg) scale(1.4); } 40% { transform: rotate(18deg) scale(1.15); } 70% { transform: rotate(-8deg); } 100% { transform: none; } }
+  .chips { display: flex; flex-wrap: wrap; gap: calc(var(--u) * .2); }
+  .chip { font: 800 calc(var(--u) * .92)/1.3 var(--font); padding: 0 calc(var(--u) * .35); border-radius: 6px; color: #2a1a05; background: var(--fine); white-space: nowrap; }
+  .chip.tomorrow { background: var(--soon); }
+  .chip.today { background: var(--due); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+  .chip.past { background: #6b6b6b; color: #eee; text-decoration: line-through; }
+  .chip.off::after { content: " −" attr(data-off) "%"; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 calc(var(--u) * .3) rgba(224, 69, 58, .45); } }
+  .cell.glow { animation: glow 1.4s ease-out; }
+  @keyframes glow { 0% { box-shadow: 0 0 0 0 rgba(120, 190, 255, 0); } 30% { box-shadow: 0 0 calc(var(--u) * 1.5) calc(var(--u) * .4) rgba(120, 190, 255, .9); } 100% { box-shadow: none; } }
+  .cell.touch { box-shadow: 0 0 0 calc(var(--u) * .3) var(--agent), 0 0 calc(var(--u) * 1.6) var(--agent); }
+  .cell.drop .pic img { animation: drop .7s cubic-bezier(.3,1.6,.6,1); }
+  @keyframes drop { 0% { transform: translateY(-160%); opacity: 0; } 100% { transform: none; opacity: 1; } }
+
+  /* floor objects */
+  .thing { position: absolute; z-index: 6; }
+  .thing img { width: 100%; display: block; filter: drop-shadow(0 calc(var(--u) * .4) 0 rgba(0,0,0,.28)); }
+  .badge { position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; text-align: center; border-radius: 12px; border: 2px solid rgba(0,0,0,.4);
+           padding: calc(var(--u) * .2) calc(var(--u) * .6); font: 900 calc(var(--u) * 1.15)/1.15 var(--display); color: #fff; font-variant-numeric: tabular-nums; }
+  .badge small { display: block; font: 700 calc(var(--u) * .72)/1.2 var(--font); opacity: .9; }
+  #bin { left: 9.5%; top: 63%; width: 8.5%; }
+  #bin .badge { top: 104%; background: var(--bin); }
+  #basket { left: 78.5%; top: 64%; width: 10%; }
+  #basket .badge { top: 96%; background: var(--cashier); }
+  #crate { left: 38%; top: 70%; width: 11%; }
+  #crate .badge { top: 96%; background: var(--bank); }
+  #till { left: 88%; top: 21%; width: 11%; height: 10%; }
+  #till .badge { top: 0; background: #2b1d10; border-color: #e7c171; }
+  .wobble { animation: wobble .5s; }
+  @keyframes wobble { 25% { transform: rotate(-7deg); } 50% { transform: rotate(6deg); } 75% { transform: rotate(-3deg); } }
+  .plus { position: absolute; z-index: 40; font: 900 calc(var(--u) * 1.3)/1 var(--display); color: #ffe27a; text-shadow: 0 2px 0 #2b1d10;
+          pointer-events: none; animation: rise 1.2s ease-out forwards; }
+  @keyframes rise { to { transform: translateY(calc(var(--u) * -4)); opacity: 0; } }
+
+  #van { position: absolute; top: 76%; width: 30%; left: -34%; z-index: 7; transition: left 1.6s cubic-bezier(.3,.8,.4,1); }
+  #van img { width: 100%; filter: drop-shadow(0 calc(var(--u) * .5) 0 rgba(0,0,0,.3)); }
+  #van.here { left: 3%; }
+
+  .flyer { position: absolute; z-index: 45; pointer-events: none; filter: drop-shadow(0 4px 0 rgba(0,0,0,.3)); }
+  .walker { position: absolute; z-index: 8; pointer-events: none; height: 25%; }
+  .walker img { height: 100%; display: block; }
+  .walker.back img { transform: scaleX(-1); }
+  .walker b { position: absolute; left: 50%; top: -6%; transform: translateX(-50%); white-space: nowrap; background: #fff8e6; color: #2a1a05;
+              border: 2px solid #2b1d10; border-radius: 8px; padding: 0 calc(var(--u) * .4); font: 800 calc(var(--u) * .95)/1.3 var(--display); }
+
+  /* shutter and overlays on the scene */
+  #shutter { position: absolute; left: 0; right: 0; top: 0; height: 0%; z-index: 50; transition: height 1.4s cubic-bezier(.5,0,.3,1);
+             background: repeating-linear-gradient(#59636e 0 calc(var(--u) * 1.6), #3e464f calc(var(--u) * 1.6) calc(var(--u) * 1.9)); border-bottom: calc(var(--u) * .8) solid #2a3038; }
+  body.night #shutter, body.week_over #shutter { height: 100%; }
+  .overlay { position: absolute; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 4%; }
+  .overlay.on { display: flex; }
+  .card { background: #fffaf0; color: #2a1a05; border: calc(var(--u) * .4) solid #2b1d10; border-radius: calc(var(--u) * 1.4);
+          box-shadow: 0 calc(var(--u) * .8) 0 rgba(0,0,0,.35); padding: calc(var(--u) * 2) calc(var(--u) * 2.4); max-width: 100%; max-height: 100%; overflow: auto; }
+  .card h2 { margin: 0 0 calc(var(--u) * 1); font: 900 calc(var(--u) * 2.6)/1.1 var(--display); }
+  .card h3 { margin: calc(var(--u) * 1.2) 0 calc(var(--u) * .5); font: 900 calc(var(--u) * 1.5)/1.1 var(--display); }
+  .card p, .card li { font-size: calc(var(--u) * 1.25); line-height: 1.4; }
+
+  #calendar .page { width: calc(var(--u) * 22); text-align: center; background: #fffaf0; border: calc(var(--u) * .45) solid #2b1d10; border-radius: calc(var(--u) * 1.2);
+                    overflow: hidden; animation: flip .9s cubic-bezier(.3,1.4,.5,1); box-shadow: 0 calc(var(--u) * .8) 0 rgba(0,0,0,.35); color: #2a1a05; }
+  #calendar .page b { display: block; background: var(--due); color: #fff; font: 900 calc(var(--u) * 2.2)/1.6 var(--display); }
+  #calendar .page span { display: block; font: 900 calc(var(--u) * 4)/1.3 var(--display); }
+  #calendar .page i { display: block; font: 700 calc(var(--u) * 1.3)/1.6 var(--font); font-style: normal; padding-bottom: calc(var(--u) * .8); }
+  @keyframes flip { from { transform: rotateX(80deg) translateY(-30%); opacity: 0; } }
+
+  /* the food bank web page, as a browser window */
+  #browser { position: absolute; left: 14%; top: 8%; width: 66%; z-index: 55; display: none; background: #fff; color: #111;
+             border: calc(var(--u) * .35) solid #2b1d10; border-radius: calc(var(--u) * 1); overflow: hidden;
+             box-shadow: 0 calc(var(--u) * 1) 0 rgba(0,0,0,.35); animation: pop .4s cubic-bezier(.3,1.5,.5,1); }
+  #browser.on { display: block; }
+  #browser .bar { display: flex; gap: calc(var(--u) * .5); align-items: center; padding: calc(var(--u) * .5) calc(var(--u) * .8); background: #e9e4da; border-bottom: 2px solid #2b1d10; }
+  #browser .bar i { width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: #e0453a; display: inline-block; }
+  #browser .bar i:nth-child(2) { background: #f2b632; } #browser .bar i:nth-child(3) { background: #4caf6a; }
+  #browser .url { flex: 1; background: #fff; border-radius: 99px; padding: calc(var(--u) * .2) calc(var(--u) * .9); font: 600 calc(var(--u) * 1)/1.4 var(--font); color: #555; margin-left: calc(var(--u) * .6); }
+  #browser .body { padding: calc(var(--u) * 1.4) calc(var(--u) * 2); font: 500 calc(var(--u) * 1.2)/1.45 var(--font); }
+  #browser h4 { margin: 0 0 calc(var(--u) * .6); font: 900 calc(var(--u) * 1.6)/1.2 var(--display); color: var(--bank); }
+  #browser .form { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--u) * .3) calc(var(--u) * 1); margin-bottom: calc(var(--u) * 1); }
+  #browser .form label { font-weight: 800; color: #555; }
+  #browser .form div { border: 2px solid #ccc; border-radius: 6px; padding: 0 calc(var(--u) * .5); min-height: 1.4em; }
+  #browser .reply { white-space: pre-wrap; border-top: 2px dashed #ccc; padding-top: calc(var(--u) * .8); }
+  #browser .hidden { color: #fff; white-space: pre-wrap; margin-top: calc(var(--u) * .6); }
+  body.reveal #browser .hidden { color: var(--due); background: #fff0ee; outline: 3px dashed var(--due); border-radius: 6px; padding: calc(var(--u) * .4) calc(var(--u) * .6); }
+  body.reveal #browser .hidden::before { content: "Hidden on the page (white text), but the agent reads it: "; display: block; font-weight: 900; color: #a01f14; }
+  @keyframes pop { from { transform: scale(.7); opacity: 0; } }
+
+  #manual, #receipt { position: absolute; z-index: 54; display: none; }
+  #manual { left: 20%; top: 10%; width: 60%; animation: slidein .5s cubic-bezier(.3,1.3,.5,1); }
+  #manual.on, #receipt.on { display: block; }
+  #manual .card { white-space: pre-wrap; font: 600 calc(var(--u) * 1.08)/1.45 var(--font); background: #f3ead2; }
+  #manual .card b { display: block; font: 900 calc(var(--u) * 1.6)/1.2 var(--display); margin-bottom: calc(var(--u) * .5); }
+  @keyframes slidein { from { transform: translateY(40%) rotate(-4deg); opacity: 0; } }
+  #receipt { right: 3%; top: 31%; width: 30%; transform-origin: top; animation: unroll .7s ease-out; }
+  #receipt pre { margin: 0; background: #fff; color: #222; padding: calc(var(--u) * 1) calc(var(--u) * 1.2); font: 600 calc(var(--u) * 1)/1.45 ui-monospace, Consolas, monospace;
+                 white-space: pre-wrap; border: 2px solid #2b1d10; border-top: 0; box-shadow: 0 calc(var(--u) * .6) 0 rgba(0,0,0,.3);
+                 -webkit-mask: linear-gradient(#000 calc(100% - 10px), transparent); }
+  @keyframes unroll { from { transform: scaleY(0); } }
+  #slip { position: absolute; z-index: 54; display: none; left: 30%; top: 12%; width: 36%; animation: slidein .5s cubic-bezier(.3,1.3,.5,1); }
+  #slip.on { display: block; }
+  #slip .card { background: #fdf6d8; border-color: #2b1d10; transform: rotate(-1.5deg); }
+  #slip .card > b { display: block; font: 900 calc(var(--u) * 1.6)/1.2 var(--display); margin-bottom: calc(var(--u) * .5); }
+  #slip ul { list-style: none; margin: 0; padding: 0; font: 600 calc(var(--u) * 1.1)/1.5 var(--font); }
+  #slip li { display: flex; justify-content: space-between; border-bottom: 1px dashed #c9b98a; color: #8a7a55; }
+  #slip li.changed { color: #2b1d10; font-weight: 900; }
+  #slip li.changed span::after { content: " (changed)"; color: var(--agent); font-weight: 800; }
+  #slip .why { margin-top: calc(var(--u) * .6); font-style: italic; color: #4a3510; font-size: calc(var(--u) * 1.1); }
+
+  #approval .card { border-color: var(--due); text-align: center; max-width: 80%; }
+  #approval .what { font: 900 calc(var(--u) * 2.2)/1.2 var(--display); margin: calc(var(--u) * .4) 0; }
+  #approval .why { font-style: italic; font-size: calc(var(--u) * 1.4); color: #4a3510; }
+  #approval .buttons { display: flex; gap: calc(var(--u) * 1.4); justify-content: center; margin-top: calc(var(--u) * 1.4); }
+  #approval button { font: 900 calc(var(--u) * 1.8)/1 var(--display); padding: calc(var(--u) * .9) calc(var(--u) * 2.6); border-radius: 99px; border: 3px solid #2b1d10; cursor: pointer; }
+  #approval .yes { background: var(--ok); color: #fff; } #approval .no { background: var(--due); color: #fff; }
+  .stamp { position: absolute; z-index: 70; left: 50%; top: 40%; transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none;
+           font: 900 calc(var(--u) * 5)/1 var(--display); color: var(--due); border: calc(var(--u) * .6) solid var(--due); border-radius: calc(var(--u) * 1);
+           padding: calc(var(--u) * .4) calc(var(--u) * 1.6); background: rgba(255,250,240,.85); animation: stamp 2.6s ease-out forwards; }
+  .stamp.ok { color: var(--ok); border-color: var(--ok); }
+  @keyframes stamp { 0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.4); opacity: 0; } 12% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+  #night .card { width: 92%; }
+  .tonight { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--u) * 2); }
+  .tonight .big { font: 900 calc(var(--u) * 3)/1 var(--display); font-variant-numeric: tabular-nums; }
+  .tonight .row { display: flex; justify-content: space-between; align-items: baseline; font-size: calc(var(--u) * 1.3); padding: calc(var(--u) * .3) 0; border-bottom: 2px dotted #d9ccb0; }
+  .tonight .row b { font: 900 calc(var(--u) * 1.6)/1 var(--display); font-variant-numeric: tabular-nums; }
+  .bars { display: grid; grid-template-columns: repeat(6, 1fr); gap: calc(var(--u) * .8); align-items: end; height: calc(var(--u) * 9); margin-top: calc(var(--u) * 1.2); }
+  .bars .col { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; text-align: center; font-size: calc(var(--u) * .9); }
+  .bars .pair { display: flex; gap: 3px; align-items: flex-end; height: calc(100% - 1.4em); }
+  .bars .pair i { flex: 1; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .bars .pair i.saved { background: var(--bank); } .bars .pair i.binned { background: var(--bin); } .bars .pair i.spoiled { background: #b07a3a; }
+  .legend { display: flex; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * .95); margin-top: calc(var(--u) * .4); }
+  .legend i { display: inline-block; width: 1em; height: 1em; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+
+  /* before the week: the join card takes the place of the agent's steps, so the shop stays in view */
+  #lobby { display: none; flex: 1; min-height: 0; grid-template-columns: auto 1fr; gap: 18px; align-items: center;
+           background: #fffaf0; color: #2a1a05; border: 3px solid #050a14; border-radius: 16px; padding: 16px 18px; }
+  #lobby.on { display: grid; }
+  body.lobby #steps, body.lobby #note { display: none; }
+  #lobby .qr { text-align: center; }
+  #lobby .qr img { width: min(15vw, 34vh); height: min(15vw, 34vh); border: 3px solid #2b1d10; border-radius: 12px; background: #fff; display: block; }
+  #lobby .qr div { font: 800 15px/1.3 var(--font); word-break: break-all; margin-top: 6px; }
+  #lobby h3 { margin: 0 0 8px; font: 900 26px/1.15 var(--display); }
+  #lobby ul { padding-left: 1.1em; margin: 0; font-size: 16px; line-height: 1.4; }
+  #lobby .count { margin: 12px 0 0; font: 900 26px/1.2 var(--display); color: var(--agent); }
+
+  /* guided tour: a spotlight on one part of the screen and a card that explains it */
+  #tourSpot { position: fixed; z-index: 200; display: none; pointer-events: none; border-radius: 16px; outline: 4px solid var(--soon);
+              box-shadow: 0 0 0 200vmax rgba(4, 8, 16, .72); transition: left .55s ease, top .55s ease, width .55s ease, height .55s ease; }
+  #tourCard { position: fixed; z-index: 201; display: none; width: min(30vw, 520px); background: #fffaf0; color: #2a1a05;
+              border: 3px solid #050a14; border-radius: 16px; padding: 16px 20px 18px; box-shadow: 0 10px 0 rgba(0,0,0,.35);
+              transition: left .55s ease, top .55s ease; }
+  #tourSpot.on, #tourCard.on { display: block; }
+  #tourSpot.story { outline: none; }
+  #tourCard.story { width: min(54vw, 940px); padding: 30px 40px 34px; }
+  #tourCard.story b { font-size: 46px; margin: 8px 0 14px; }
+  #tourCard.story p { font-size: 27px; line-height: 1.45; }
+  #tourCard small { font: 800 14px/1 var(--font); color: var(--agent); }
+  #tourCard b { display: block; font: 900 30px/1.15 var(--display); margin: 6px 0 8px; }
+  #tourCard p { margin: 0; font-size: 20px; line-height: 1.4; }
+
+  #weekend .card { width: 94%; }
+  .bins { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: calc(var(--u) * 1.6); text-align: center; }
+  .bins div { border-radius: calc(var(--u) * 1); padding: calc(var(--u) * 1); color: #fff; }
+  .bins b { display: block; font: 900 calc(var(--u) * 3.4)/1.1 var(--display); }
+  .board { columns: 2; column-gap: calc(var(--u) * 3); margin-top: calc(var(--u) * 1); }
+  .board div { display: flex; justify-content: space-between; font-size: calc(var(--u) * 1.4); padding: calc(var(--u) * .2) 0; border-bottom: 2px dotted #d9ccb0; break-inside: avoid; }
+  .board div b { font-family: var(--display); }
+
+  /* ---------- the agent ---------- */
+  #panel { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 14px 16px 10px;
+           background: radial-gradient(120% 60% at 30% 0%, #1e3a66 0%, #12203a 55%, #0d1628 100%); }
+  body.checkin #panel { box-shadow: inset 0 0 0 4px var(--agent), inset 0 0 60px rgba(43, 139, 230, .45); }
+  #goal { background: #fffaf0; color: #2a1a05; border: 3px solid #050a14; border-radius: 16px; padding: 10px 14px; }
+  #goal small { font: 800 13px/1 var(--font); color: var(--agent); }
+  #goal div { font: 900 21px/1.25 var(--display); margin-top: 4px; }
+  #who { display: grid; grid-template-columns: 30% 1fr; gap: 10px; align-items: end; margin-top: 10px; min-height: 0; }
+  #robot { position: relative; align-self: end; }
+  #robot img { width: 100%; max-height: 24vh; object-fit: contain; object-position: bottom; display: block; filter: drop-shadow(0 6px 0 rgba(0,0,0,.35)); transform-origin: 50% 100%; }
+  body.checkin #robot img { animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-4px) rotate(-1.5deg); } }
+  #robot .zz { position: absolute; right: 0; top: 0; font: 900 26px/1 var(--display); color: #9fc4ff; display: none; }
+  body.open #robot .zz, body.night #robot .zz, body.lobby #robot .zz { display: block; animation: zz 2.4s ease-in-out infinite; }
+  @keyframes zz { 0% { transform: translate(0, 10px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translate(10px, -16px); opacity: 0; } }
+  #bubble { position: relative; background: #fff; color: #10223d; border: 3px solid #050a14; border-radius: 18px; padding: 12px 16px;
+            font: 700 19px/1.35 var(--font); min-height: 64px; margin-bottom: 30px; max-height: 30vh; overflow: hidden; }
+  #bubble::after { content: ""; position: absolute; left: -14px; bottom: 16px; border: 12px solid transparent; border-right-color: #fff; border-left: 0; }
+  #bubble .label { display: block; font: 800 12px/1 var(--font); color: var(--agent); margin-bottom: 5px; }
+  #bubble.why { font-style: italic; }
+  #bubble.wake { font-style: normal; font-weight: 600; font-size: 16px; background: #eef4ff; }
+  .dots i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; background: var(--agent); animation: dot 1s infinite; }
+  .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 50% { transform: translateY(-6px); opacity: .4; } }
+  #note { margin-top: 2px; background: #fff27a; color: #3a3000; border-radius: 3px; padding: 7px 12px; font: 600 14px/1.35 var(--font);
+          max-height: calc(4 * 1.35em + 26px); overflow: hidden; -webkit-mask: linear-gradient(#000 80%, transparent); flex-shrink: 0;
+          transform: rotate(-1deg); box-shadow: 0 4px 0 rgba(0,0,0,.3); display: none; }
+  #note.on { display: block; }
+  #note.fresh { animation: pin .8s cubic-bezier(.3,1.5,.5,1); }
+  #note b { font: 900 13px/1 var(--font); display: block; margin-bottom: 3px; }
+  @keyframes pin { from { transform: translateY(-40px) rotate(-14deg) scale(1.2); opacity: 0; } }
+  #tools { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 8px; }
+  #tools span { font: 700 13px/1 ui-monospace, Consolas, monospace; padding: 5px 7px; border-radius: 7px; background: #1b2b4a; color: #9fb0cc; border: 1px solid #2a3d63; transition: all .25s; }
+  #tools span.on { background: var(--agent); color: #fff; border-color: #bfe0ff; transform: scale(1.08); box-shadow: 0 0 14px var(--agent); }
+  #steps { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; }
+  .step { background: #18294a; border: 2px solid #26406b; border-radius: 12px; padding: 7px 11px; cursor: pointer; animation: stepin .35s ease-out; }
+  .step.act { border-color: #4b8fe0; }
+  .step.bad { border-color: var(--due); background: #3a1d24; }
+  .step .call { font: 700 14.5px/1.3 ui-monospace, Consolas, monospace; color: #cfe3ff; }
+  .step .call b { color: #fff; }
+  .step .res { font: 500 14px/1.35 var(--font); color: #b9c6dd; margin-top: 2px; white-space: pre-wrap; max-height: 2.8em; overflow: hidden; }
+  .step.open .res { max-height: none; }
+  .step .ck { float: right; font: 800 11px/1.4 var(--font); color: #7f93b7; }
+  .step.sep { background: transparent; border: 0; border-top: 2px dashed #2a3d63; border-radius: 0; padding: 4px 0 0; cursor: default; color: #7f93b7; font: 800 13px/1.2 var(--font); }
+  @keyframes stepin { from { transform: translateX(30px); opacity: 0; } }
+  #flags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  #flags span { font: 800 12px/1 var(--font); padding: 5px 8px; border-radius: 99px; background: #1b2640; color: #9fb0cc; }
+  #flags span.lock { background: var(--due); color: #fff; }
+
+  /* ---------- director bar (only with the key) ---------- */
+  #director { position: fixed; left: 0; right: 0; bottom: 0; z-index: 200; display: none; gap: 6px; align-items: center; flex-wrap: wrap;
+              padding: 6px 10px; background: rgba(5, 10, 20, .94); border-top: 2px solid #26324f; transform: translateY(calc(100% - 6px)); transition: transform .25s; }
+  body.admin #director { display: flex; }
+  #director:hover, #director.pin { transform: none; }
+  #director button, #director select { font: 700 13px/1 var(--font); padding: 7px 10px; border-radius: 8px; border: 1px solid #3a4d73; background: #1b2b4a; color: #e7eefc; cursor: pointer; }
+  #director button.on { background: var(--agent); border-color: #bfe0ff; }
+  #director button.warn { background: #6b1f1a; border-color: var(--due); }
+  #director .sep { width: 1px; height: 24px; background: #3a4d73; margin: 0 4px; }
+  #director .msg { color: #ffb0a5; font: 700 13px/1.2 var(--font); }
+  #director .keys { color: #7f93b7; font: 600 12px/1.2 var(--font); margin-left: auto; }
+</style>
+</head>
+<body class="lobby">
+<div id="app">
+  <header id="top">
+    <div id="title">Shelf Life<small>a corner shop, run by an AI agent at night</small></div>
+    <div id="week"></div>
+    <div id="money">
+      <div class="stat" id="profitToday"><b>€0.00</b><span>profit tonight</span></div>
+      <div class="stat" id="profitWeek"><b>€0.00</b><span>profit this week</span></div>
+    </div>
+  </header>
+  <div id="main">
+    <div id="stage">
+      <div id="scene">
+        <div id="wallclock">20:00</div>
+        <div id="phase">Closed</div>
+        <div id="shelf"></div>
+        <div class="thing" id="till"><div class="badge" id="tillBadge">€0.00<small>takings tonight</small></div></div>
+        <div class="thing" id="bin"><img src="/static/img/bin.webp" alt="bin"><div class="badge" id="binBadge">0 kg<small>bin tonight</small></div></div>
+        <div class="thing" id="basket"><img src="/static/img/basket.webp" alt="cashier's basket"><div class="badge" id="basketBadge">0 of 5<small>cashier takes home</small></div></div>
+        <div class="thing" id="crate"><img src="/static/img/crate.webp" alt="food bank crate"><div class="badge" id="crateBadge">0 kg<small>food bank</small></div></div>
+        <div id="van"><img src="/static/img/van.webp" alt="food bank van"></div>
+        <div id="dim"></div>
+        <div id="browser">
+          <div class="bar"><i></i><i></i><i></i><div class="url">foodbank-osnabrueck.example / book-a-pickup</div></div>
+          <div class="body">
+            <h4>Osnabrück Food Bank · book a pickup</h4>
+            <div class="form"><label>Items</label><div id="formItems"></div><label>Message</label><div id="formMsg"></div></div>
+            <div class="reply" id="formReply"></div>
+            <div class="hidden" id="formHidden"></div>
+          </div>
+        </div>
+        <div id="manual"><div class="card"><b>House rules</b><span id="manualText"></span></div></div>
+        <div id="receipt"><pre id="receiptText"></pre></div>
+        <div id="slip"><div class="card"><b id="slipTitle">Order</b><ul id="slipList"></ul><div class="why" id="slipWhy"></div></div></div>
+        <div id="shutter"></div>
+        <div class="overlay" id="calendar"><div class="page"><b id="calMonth">November</b><span id="calDay">Monday</span><i id="calNote"></i></div></div>
+        <div class="overlay" id="approval"><div class="card">
+          <h2>The agent asks the owner</h2>
+          <div class="what" id="apWhat"></div>
+          <div class="why" id="apWhy"></div>
+          <div class="buttons" id="apButtons"><button class="yes" data-d="approve">Approve</button><button class="no" data-d="reject">Reject</button></div>
+          <p id="apWait">Waiting for the owner's decision …</p>
+        </div></div>
+        <div class="overlay" id="night"><div class="card">
+          <h2 id="nightTitle">Monday is over</h2>
+          <div class="tonight">
+            <div>
+              <h3>The shop</h3>
+              <div class="row"><span>Profit</span><b id="nProfit"></b></div>
+              <div class="row"><span>Saved (food bank and cashier)</span><b id="nSaved"></b></div>
+              <div class="row"><span>Thrown away</span><b id="nBin"></b></div>
+              <div class="row"><span>Customers who found an empty shelf</span><b id="nMissed"></b></div>
+            </div>
+            <div>
+              <h3>The flats</h3>
+              <div class="row"><span>Complete dinners</span><b id="nDinners"></b></div>
+              <div class="row"><span>Breakfasts</span><b id="nBreakfasts"></b></div>
+              <div class="row"><span>Spoiled in the fridge</span><b id="nSpoiled"></b></div>
+            </div>
+          </div>
+          <div class="bars" id="nBars"></div>
+          <div class="legend"><span><i style="background:var(--bank)"></i>saved by the shop</span><span><i style="background:var(--bin)"></i>binned by the shop</span><span><i style="background:#b07a3a"></i>spoiled at home</span></div>
+        </div></div>
+        <div class="overlay" id="weekend"><div class="card">
+          <h2>The week in the corner shop</h2>
+          <div class="bins" id="wBins"></div>
+          <h3>Best-fed flats</h3>
+          <div class="board" id="wBoard"></div>
+        </div></div>
+      </div>
+      <div id="ticker"><em>Who bought what tonight</em></div>
+    </div>
+    <aside id="panel">
+      <div id="goal"><small>Night Shift Agent · goal</small><div id="goalText"></div></div>
+      <div id="who">
+        <div id="robot"><img src="/static/img/agent.webp" alt="Night Shift Agent"><span class="zz">z</span></div>
+        <div>
+          <div id="bubble"><span class="label">Night Shift Agent</span><span id="bubbleText">Off duty until 20:00.</span></div>
+        </div>
+      </div>
+      <div id="note"><b id="noteHead">Note for tomorrow</b><span id="noteText"></span></div>
+      <div id="tools"></div>
+      <div id="steps"></div>
+      <div id="lobby">
+        <div class="qr"><img id="qr" alt="QR code to join"><div id="joinUrl"></div></div>
+        <div>
+          <h3>Scan to join as a shared flat</h3>
+          <ul>
+            <li><b>€28</b> for the whole week, Monday to Saturday.</li>
+            <li>A complete dinner scores <b>+3</b> (main, side, something fresh), breakfast <b>+1</b>.</li>
+            <li>Whatever spoils in your fridge costs <b>−1</b>.</li>
+          </ul>
+          <p class="count" id="joined">0 flats have joined</p>
+        </div>
+      </div>
+      <div id="flags"></div>
+    </aside>
+  </div>
+</div>
+
+<div id="tourSpot"></div>
+<div id="tourCard"><small id="tourStep"></small><b id="tourTitle"></b><p id="tourText"></p></div>
+<div id="director">
+  <select id="dMode"><option value="llm">Language model</option><option value="rule">Fixed rule</option></select>
+  <button id="dTour">Tour (T)</button>
+  <button id="dStart">Start week</button>
+  <span class="sep"></span>
+  <button id="dPause">Pause</button>
+  <button id="dSkip">Close shop now</button>
+  <button id="dContinue">Next evening</button>
+  <button id="dFast">Fast</button>
+  <span class="sep"></span>
+  <button id="dApproval">Owner approval</button>
+  <select id="dInjection"><option value="">No injection</option></select>
+  <button id="dReveal">Reveal the page</button>
+  <button id="dReplay" class="warn">Play this evening again</button>
+  <span class="sep"></span>
+  <button id="dBoard">Week summary</button>
+  <button id="dReset" class="warn">Reset</button>
+  <span class="msg" id="dMsg"></span>
+  <span class="keys">Space next · P pause · F fast · A approval · R reveal · D pin bar</span>
+</div>
+
+<script>
+const KEY = new URLSearchParams(location.hash.slice(1)).get("key");
+if (KEY) document.body.classList.add("admin");
+const ORDER = ["beef", "sushi", "eggs", "rolls", "pasta", "salad", "berries", "yoghurt", "milk"];
+const NAMES = {};
+const $ = id => document.getElementById(id);
+const scene = $("scene");
+const euro = x => (x < 0 ? "−€" : "€") + Math.abs(x).toFixed(2);
+let V = null, epoch = -1, since = 0, seenSteps = new Set(), lastNoteText = null, lastPendingId = null, lastDecision = 0;
+let busyUntil = 0, toolTimer = null, overlayTimer = null, lastPhase = null, lastDay = null;
+const DAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/* ---------- size the scene to the space left of the agent panel ---------- */
+function fit() {
+  const stage = $("stage");
+  const h = stage.clientHeight - 56, wMax = window.innerWidth * 0.66;
+  let w = Math.min(h * 1.5, wMax);
+  scene.style.width = w + "px";
+  scene.style.height = (w / 1.5) + "px";
+  scene.style.setProperty("--u", (w / 100) + "px");
+}
+addEventListener("resize", fit);
+
+/* ---------- build the shelf once ---------- */
+function buildShelf() {
+  const s = $("shelf");
+  s.innerHTML = ORDER.map(k => `<div class="cell" id="c-${k}"><div class="pic"><span class="qty">0</span><img src="/static/img/${k}.webp" alt=""></div>
+    <div class="info"><div class="name"></div><div class="tag"></div><div class="chips"></div></div></div>`).join("");
+}
+
+function renderShelf(shelf) {
+  for (const p of shelf) {
+    NAMES[p.key] = p.name;
+    const c = $("c-" + p.key);
+    c.classList.toggle("empty", p.total === 0);
+    c.querySelector(".qty").textContent = p.total;
+    c.querySelector(".name").textContent = p.name;
+    const tag = c.querySelector(".tag");
+    const o = p.offer;
+    const html = !o ? "sold out" : o.percent ? `<s>${p.full.toFixed(2)}</s>${o.price.toFixed(2)}` : o.price.toFixed(2);
+    if (tag.innerHTML !== html) tag.innerHTML = html;
+    tag.classList.toggle("off", !!(o && o.percent));
+    const chips = p.batches.slice(0, 3).map(b =>
+      `<span class="chip ${b.urgency} ${b.percent ? "off" : ""}" data-off="${b.percent}">${b.qty} · ${b.when}</span>`).join("");
+    const box = c.querySelector(".chips");
+    if (box.innerHTML !== chips) box.innerHTML = chips;
+  }
+}
+
+/* ---------- animation helpers ---------- */
+function rel(el) {
+  const a = el.getBoundingClientRect(), s = scene.getBoundingClientRect();
+  return { x: a.left - s.left + a.width / 2, y: a.top - s.top + a.height / 2, w: a.width, h: a.height };
+}
+function fly(fromEl, toEl, key, opts = {}) {
+  const a = rel(fromEl), b = rel(toEl);
+  const img = document.createElement("img");
+  img.src = `/static/img/${key}.webp`;
+  img.className = "flyer";
+  const size = (opts.size || 7) * parseFloat(getComputedStyle(scene).getPropertyValue("--u"));
+  img.style.width = size + "px";
+  img.style.left = (a.x - size / 2) + "px";
+  img.style.top = (a.y - size / 2) + "px";
+  if (opts.grey) img.style.filter = "grayscale(.8) brightness(.8)";
+  scene.appendChild(img);
+  const dx = b.x - a.x, dy = b.y - a.y, lift = Math.min(-80, -Math.abs(dx) * .35);
+  const anim = img.animate([
+    { transform: "translate(0,0) scale(1) rotate(0)" },
+    { transform: `translate(${dx * .5}px, ${dy * .5 + lift}px) scale(1.15) rotate(${opts.spin || 120}deg)`, offset: .5 },
+    { transform: `translate(${dx}px, ${dy}px) scale(.55) rotate(${(opts.spin || 120) * 2}deg)`, opacity: .9 },
+  ], { duration: opts.ms || 900, easing: "cubic-bezier(.4,.1,.6,1)", delay: opts.delay || 0, fill: "both" });
+  anim.onfinish = () => { img.remove(); wobble(toEl); if (opts.done) opts.done(); };
+}
+function wobble(el) { el.classList.remove("wobble"); void el.offsetWidth; el.classList.add("wobble"); }
+function plus(el, text) {
+  const r = rel(el), d = document.createElement("div");
+  d.className = "plus"; d.textContent = text;
+  d.style.left = (r.x - 20 + Math.random() * 30) + "px"; d.style.top = (r.y - r.h * .6) + "px";
+  scene.appendChild(d); setTimeout(() => d.remove(), 1300);
+}
+function stamp(text, ok) {
+  const d = document.createElement("div");
+  d.className = "stamp" + (ok ? " ok" : ""); d.textContent = text;
+  scene.appendChild(d); setTimeout(() => d.remove(), 2700);
+}
+
+/* customers walk in through the door, take something and leave */
+let walkers = 0;
+function customer(who, keys) {
+  const cell = $("c-" + keys[0]);
+  if (!cell) return;
+  if (walkers >= 7) { keys.forEach((k, i) => fly($("c-" + k), $("till"), k, { size: 4, ms: 700, delay: i * 120 })); return; }
+  walkers++;
+  const W = scene.clientWidth, H = scene.clientHeight;
+  const w = document.createElement("div");
+  w.className = "walker";
+  const n = 1 + Math.floor(Math.random() * 6);   // customer1.webp to customer6.webp
+  w.innerHTML = `<img src="/static/img/customer${n}.webp" alt="">` + (who ? `<b>${esc(who)}</b>` : "");
+  const target = rel(cell);
+  const fh = H * .25, floorY = H * (0.70 + Math.random() * .12) - fh;
+  w.style.left = (W * .06) + "px"; w.style.top = floorY + "px"; w.style.opacity = 0;
+  scene.appendChild(w);
+  const tx = Math.max(W * .12, Math.min(W * .72, target.x - fh * .3));
+  const walk = Math.abs(tx - W * .06) / W * 2600 + 600;
+  w.animate([{ opacity: 0, transform: "translateX(0)" }, { opacity: 1, transform: "translateX(10px)", offset: .1 },
+             { opacity: 1, transform: `translateX(${tx - W * .06}px)` }], { duration: walk, easing: "ease-in-out", fill: "forwards" })
+   .onfinish = () => {
+    keys.forEach((k, i) => fly($("c-" + k), w, k, { size: 4.5, ms: 600, delay: i * 180, spin: 30 }));
+    setTimeout(() => {
+      w.classList.add("back");
+      w.animate([{ transform: `translateX(${tx - W * .06}px)`, opacity: 1 }, { transform: "translateX(0)", opacity: 1, offset: .9 }, { transform: "translateX(-20px)", opacity: 0 }],
+                { duration: walk, easing: "ease-in-out", fill: "forwards" }).onfinish = () => { w.remove(); walkers--; };
+    }, 650 + keys.length * 180);
+  };
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+/* ---------- physical events: deliveries, sales, hand-overs, bins ---------- */
+function playEvents(events) {
+  const buys = [];
+  let delay = 0;
+  for (const e of events) {
+    if (e.kind === "buy") { buys.push(e); continue; }
+    const cell = $("c-" + e.product);
+    if (e.kind === "delivery") {
+      Object.keys(e.items).forEach((k, i) => setTimeout(() => { const c = $("c-" + k); c.classList.remove("drop"); void c.offsetWidth; c.classList.add("drop"); }, i * 120));
+    } else if (e.kind === "mark_down" && cell) {
+      const tag = cell.querySelector(".tag"); tag.classList.remove("swing"); void tag.offsetWidth; tag.classList.add("swing");
+    } else if (e.kind === "bin" || e.kind === "auto_bin") {
+      const n = Math.min(6, Math.max(1, Math.ceil(e.qty / 8)));
+      for (let i = 0; i < n; i++) fly(cell, $("bin"), e.product, { delay: delay + i * 160, grey: e.kind === "auto_bin" });
+      delay += 250;
+    } else if (e.kind === "cashier") {
+      for (let i = 0; i < Math.min(5, e.qty); i++) fly(cell, $("basket"), e.product, { delay: delay + i * 160 });
+      delay += 200;
+    } else if (e.kind === "food_bank") {
+      $("van").classList.add("here");
+      const n = Math.min(6, Math.max(1, Math.ceil(e.qty / 6)));
+      for (let i = 0; i < n; i++) fly(cell, $("crate"), e.product, { delay: delay + 500 + i * 160 });
+      delay += 250;
+    } else if (e.kind === "rejected") {
+      stamp("REJECTED", false);
+    }
+  }
+  // group a flat's purchases into one visit
+  const visits = new Map();
+  for (const e of buys) {
+    const k = e.who || ("regular" + Math.random());
+    if (!visits.has(k)) visits.set(k, { who: e.who, keys: [] });
+    visits.get(k).keys.push(e.product);
+    if (e.price) setTimeout(() => plus($("till"), "+" + euro(e.price)), 200 + Math.random() * 500);
+    if (e.who) ticker(e);
+  }
+  [...visits.values()].forEach((v, i) => setTimeout(() => customer(v.who, v.keys.slice(0, 3)), i * 260));
+}
+
+function ticker(e) {
+  const t = $("ticker"), d = document.createElement("span");
+  if (e.percent) d.className = "off";
+  d.innerHTML = `<b>${esc(e.who)}</b> · ${esc(NAMES[e.product] || e.product)}${e.price ? " " + euro(e.price) : ""}`;
+  t.insertBefore(d, t.children[1] || null);
+  while (t.children.length > 40) t.lastChild.remove();
+}
+
+/* ---------- the agent's steps ---------- */
+const ACTIONS = ["mark_down", "food_bank_form", "send_to_food_bank", "give_to_cashier", "bin", "order", "note_for_tomorrow"];
+function callText(s) {
+  const a = Object.assign({}, s.args || {}); delete a.why;
+  if (s.name === "wake") return "<b>wake-up message</b>";
+  if (s.name === "food_bank_form" || s.name === "order") {
+    const items = (a.items || []).map(i => `${i.quantity} ${i.product}`).join(", ");
+    return `<b>${s.name}</b>(${esc(items)})`;
+  }
+  const parts = Object.entries(a).map(([k, v]) => k === "percent" ? `${v} %` : typeof v === "string" ? (v.length > 40 ? `"${esc(v.slice(0, 40))}…"` : esc(v)) : esc(JSON.stringify(v)));
+  return `<b>${s.name}</b>(${parts.join(", ")})`;
+}
+function setBubble(kind, html) {
+  const b = $("bubble");
+  b.className = kind;
+  $("bubbleText").innerHTML = html;
+}
+function lightTool(name) {
+  document.querySelectorAll("#tools span").forEach(t => t.classList.toggle("on", t.dataset.name === name));
+  clearTimeout(toolTimer);
+  toolTimer = setTimeout(() => document.querySelectorAll("#tools span").forEach(t => t.classList.remove("on")), 2400);
+}
+function touch(product) {
+  document.querySelectorAll(".cell.touch").forEach(c => c.classList.remove("touch"));
+  const c = product && $("c-" + Object.keys(NAMES).find(k => NAMES[k].toLowerCase() === String(product).toLowerCase() || k === String(product).toLowerCase()));
+  if (c) { c.classList.add("touch"); setTimeout(() => c.classList.remove("touch"), 2200); }
+}
+function showOverlayFor(id, ms) {
+  ["browser", "manual", "receipt", "slip"].forEach(x => $(x).classList.toggle("on", x === id));
+  clearTimeout(overlayTimer);
+  if (ms) overlayTimer = setTimeout(() => { if (!document.body.classList.contains("reveal")) $(id).classList.remove("on"); }, ms);
+}
+function showForm(s) {
+  const a = s.args || {};
+  $("formItems").textContent = (a.items || []).map(i => `${i.quantity} × ${i.product}`).join(", ") || "–";
+  $("formMsg").textContent = a.message || "";
+  $("formReply").textContent = s.result;
+  $("formHidden").textContent = s.hidden || "";
+}
+function showSlip(s) {
+  const lines = (s.result || "").split("\n");
+  $("slipTitle").textContent = lines[0].startsWith("Order for") ? lines[0].replace(/ confirmed.*/, "") : "Order";
+  $("slipList").innerHTML = lines.filter(l => l.startsWith("- ")).map(l => {
+    const m = l.slice(2).match(/^(.*?): (\d+)( \(standing order\))?$/);
+    if (!m || (m[3] && m[2] === "0")) return "";
+    return `<li class="${m[3] ? "" : "changed"}"><span>${esc(m[1])}</span><b>${m[2]}</b></li>`;
+  }).join("");
+  $("slipWhy").textContent = s.args && s.args.why ? `“${s.args.why}”` : "";
+}
+function playStep(s, animate) {
+  const why = s.args && s.args.why;
+  if (s.name === "wake") setBubble("wake", `<span class="label">It wakes up and reads</span>${esc(s.result)}`);
+  else if (why) setBubble("why", `“${esc(why)}”`);
+  else if (s.name === "done_for_now") setBubble("", `<span class="label">Done for now</span>${esc((s.args && s.args.summary) || "")}`);
+  else if (s.name === "note_for_tomorrow") setBubble("why", `<span class="label">Writes a note for tomorrow</span>“${esc(s.args.text || "")}”`);
+  else setBubble("", `<span class="label">Looks it up</span><code>${s.name}()</code>`);
+  if (!animate) return;
+  if (s.name !== "wake") lightTool(s.name);
+  if (s.args && s.args.product) touch(s.args.product);
+  if (s.name === "look_at_shelf") document.querySelectorAll(".cell").forEach((c, i) => setTimeout(() => { c.classList.remove("glow"); void c.offsetWidth; c.classList.add("glow"); }, i * 70));
+  if (s.name === "read_policy") { $("manualText").textContent = s.result.replace(/^House rules of the corner shop:\n/, ""); showOverlayFor("manual", 3200); }
+  if (s.name === "sales_report") { $("receiptText").textContent = s.result; showOverlayFor("receipt", 3400); }
+  if (s.name === "food_bank_form") { showForm(s); showOverlayFor("browser", s.hidden ? 6500 : 4200); }
+  if (s.name === "order" && /confirmed/.test(s.result || "")) { showSlip(s); showOverlayFor("slip", 5000); }
+}
+function stepCard(s) {
+  const d = document.createElement("div");
+  const bad = (ACTIONS.includes(s.name) || s.name === "send_to_food_bank") && /rejected|refuses|not booked|not accepted|cannot take|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
+  d.className = "step" + (ACTIONS.includes(s.name) ? " act" : "") + (bad ? " bad" : "");
+  const why = s.args && s.args.why ? `<div class="res" style="color:#e8f1ff;font-style:italic">“${esc(s.args.why)}”</div>` : "";
+  d.innerHTML = `<span class="ck">${["20:00", "21:00", "22:00"][s.checkin]}</span><div class="call">${callText(s)}</div>${why}<div class="res">${esc(s.result || "")}${s.hidden ? "\n\n" + esc(s.hidden) : ""}</div>`;
+  d.onclick = () => d.classList.toggle("open");
+  return d;
+}
+function renderSteps(steps, animate) {
+  const box = $("steps");
+  let fresh = [];
+  for (const s of steps) {
+    const id = `${s.day}:${s.i}`;
+    if (seenSteps.has(id)) continue;
+    seenSteps.add(id);
+    fresh.push(s);
+  }
+  if (!fresh.length) return;
+  for (const s of fresh) {
+    if (s.name === "wake") { const sep = document.createElement("div"); sep.className = "step sep"; sep.textContent = `Check-in ${["20:00", "21:00", "22:00 (closing)"][s.checkin]}`; box.appendChild(sep); }
+    box.appendChild(stepCard(s));
+  }
+  playStep(fresh[fresh.length - 1], animate);
+  box.scrollTop = box.scrollHeight;
+}
+
+/* ---------- one poll ---------- */
+function render(v) {
+  const reset = v.epoch !== epoch;
+  if (reset) {
+    epoch = v.epoch; seenSteps = new Set(); $("steps").innerHTML = ""; since = v.n_events || 0; lastNoteText = null;
+    $("van").classList.remove("here"); document.querySelectorAll(".walker,.flyer").forEach(e => e.remove()); walkers = 0;
+  }
+  V = v;
+  const phase = v.phase;
+  document.body.className = [phase, KEY ? "admin" : "", v.control.reveal ? "reveal" : "", v.busy ? "checkin" : ""].join(" ");
+  if (!v.busy && phase === "checkin") document.body.classList.add("checkin");
+  $("goalText").textContent = v.goal;
+  if (!$("tools").children.length) $("tools").innerHTML = v.tools.map(t => `<span data-name="${t.name}" title="${esc(t.description)}">${t.name}</span>`).join("");
+
+  // week strip
+  $("week").innerHTML = v.days.map((d, i) => `<div class="day ${d.state}"><b>${d.name.slice(0, 3)}</b><span>${d.note || "&nbsp;"}</span></div>`).join("");
+  $("wallclock").textContent = v.clock;
+  const ph = $("phase");
+  const label = { lobby: "Waiting for flats to join", morning: "Morning delivery", checkin: "Night Shift Agent check-in", open: "Shop open", night: "Closed for the night", week_over: "The week is over" }[phase] || phase;
+  ph.className = phase === "open" ? "open" : phase === "checkin" ? "checkin" : "";
+  ph.innerHTML = (v.paused ? "⏸ " : "") + label + (phase === "open" ? `<span class="bar"><i style="width:${100 * (1 - v.time_left / v.open_seconds)}%"></i></span>` : "");
+
+  if (v.shelf) renderShelf(v.shelf);
+  {
+    // before the week there is no evening yet: show zeros, not what the last week left behind
+    const today = v.today || { profit: 0, revenue: 0, bin_kg: 0, cashier: 0, cashier_limit: 5, booked: false };
+    const week = v.today ? v.week.profit : 0;
+    $("profitToday").querySelector("b").textContent = euro(today.profit);
+    $("profitToday").classList.toggle("neg", today.profit < 0);
+    $("profitWeek").querySelector("b").textContent = euro(week);
+    $("profitWeek").classList.toggle("neg", week < 0);
+    $("tillBadge").innerHTML = `${euro(today.revenue)}<small>takings tonight</small>`;
+    $("binBadge").innerHTML = `${today.bin_kg} kg<small>bin tonight</small>`;
+    $("basketBadge").innerHTML = `${today.cashier} of ${today.cashier_limit}<small>cashier takes home</small>`;
+    $("crate").classList.toggle("booked", today.booked);
+    $("crateBadge").innerHTML = `${today.booked ? today.food_bank_kg + " of " + today.booked_kg : 0} kg<small>${today.booked ? "food bank, booked" : "food bank, not booked"}</small>`;
+  }
+
+  // events and steps
+  if (!reset && v.events && v.events.length) playEvents(v.events);
+  if (v.n_events !== undefined) since = v.n_events;
+  if (v.steps) renderSteps(v.steps, !reset);
+  if (v.pending) setBubble("why", `<span class="label">Asks the owner and waits</span>“${esc(v.pending.why || "")}”`);
+  else if (v.thinking) setBubble("", `<span class="label">Thinking</span><span class="dots"><i></i><i></i><i></i></span>`);
+  if (phase === "open" && lastPhase !== "open") setBubble("", `<span class="label">Off the floor</span>The shop is open. The agent waits for its next check-in.`);
+  if (phase === "lobby") setBubble("", "Off duty until 20:00.");
+
+  // note for tomorrow
+  const note = v.note;
+  $("note").classList.toggle("on", !!note);
+  if (note && note.text !== lastNoteText) {
+    $("noteHead").textContent = `Note for tomorrow, written on ${note.day}`;
+    $("noteText").textContent = note.text;
+    if (lastNoteText !== null) { $("note").classList.remove("fresh"); void $("note").offsetWidth; $("note").classList.add("fresh"); }
+    lastNoteText = note.text;
+  }
+  if (!note) lastNoteText = lastNoteText === null ? null : "";
+
+  // flags
+  const flags = [];
+  flags.push(`<span>${v.mode === "llm" ? "language model" : "fixed rule"}</span>`);
+  if (v.approval) flags.push(`<span class="lock">owner approval on</span>`);
+  flags.push(`<span>${v.players} flats on phones</span>`);
+  if (v.fast) flags.push(`<span>fast forward</span>`);
+  $("flags").innerHTML = flags.join("");
+
+  // morning calendar page
+  if (phase === "morning" && (lastPhase !== "morning" || lastDay !== v.day)) {
+    $("ticker").innerHTML = "<em>Who bought what tonight</em>";
+    $("calDay").textContent = v.day_name; const dd = v.days[v.day] || {};
+    $("calNote").textContent = dd.ordered ? "delivered as the agent ordered" : (dd.note || "the standing order arrives");
+    $("calendar").classList.remove("on"); void $("calendar").offsetWidth; $("calendar").classList.add("on");
+    $("van").classList.remove("here");
+  }
+  if (phase !== "morning") $("calendar").classList.remove("on");
+
+  // approval request
+  const p = v.pending;
+  $("approval").classList.toggle("on", !!p);
+  if (p && p.id !== lastPendingId) {
+    lastPendingId = p.id;
+    $("apWhat").textContent = p.tool === "bin" ? `Throw ${p.quantity} ${NAMES[p.product] || p.product} in the bin` : `Mark ${NAMES[p.product] || p.product} down by ${p.percent} %`;
+    $("apWhy").textContent = p.why ? `“${p.why}”` : "";
+  }
+  $("apButtons").style.display = KEY && p ? "flex" : "none";
+  $("apWait").style.display = KEY ? "none" : "block";
+  const last = (v.decisions || []).slice(-1)[0];
+  if (last && last.id !== lastDecision) {
+    if (lastDecision) stamp(last.decision === "approve" ? "APPROVED" : "REJECTED", last.decision === "approve");
+    lastDecision = last.id;
+  }
+
+  // the reveal keeps the last food bank page open
+  if (v.control.reveal) {
+    const form = [...(v.steps || [])].reverse().find(s => s.name === "food_bank_form");
+    if (form) { showForm(form); ["browser", "manual", "receipt", "slip"].forEach(x => $(x).classList.toggle("on", x === "browser")); }
+  } else if (lastRevealed) { $("browser").classList.remove("on"); }
+  lastRevealed = v.control.reveal;
+
+  // night summary
+  const nightOn = phase === "night" && v.control.overlay !== "hide";
+  $("night").classList.toggle("on", nightOn);
+  if (nightOn && v.nights && v.nights.length) renderNight(v);
+  const weekOn = phase === "week_over" || v.control.overlay === "week";
+  $("weekend").classList.toggle("on", !!(weekOn && v.week_end));
+  if (weekOn && v.week_end) renderWeek(v);
+  $("lobby").classList.toggle("on", phase === "lobby");
+  if (phase === "lobby") renderLobby(v);
+  if (phase === "night" && lastPhase !== "night") setTimeout(() => $("van").classList.remove("here"), 2500);
+  lastPhase = phase; lastDay = v.day;
+  renderDirector(v);
+  renderTour(v.control.tour);
+}
+let lastRevealed = false;
+
+function renderNight(v) {
+  const n = v.nights[v.nights.length - 1];
+  $("nightTitle").textContent = `${n.day} is over`;
+  $("nProfit").textContent = euro(n.profit);
+  $("nSaved").textContent = n.saved_kg + " kg";
+  $("nBin").textContent = n.bin_kg + " kg";
+  $("nMissed").textContent = n.missed;
+  $("nDinners").textContent = `${n.dinners} of ${n.households}`;
+  $("nBreakfasts").textContent = `${n.breakfasts} of ${n.households}`;
+  $("nSpoiled").textContent = `${n.spoiled} ${n.spoiled === 1 ? "item" : "items"} · ${n.spoiled_kg} kg`;
+  const max = Math.max(5, ...v.nights.map(x => Math.max(x.saved_kg, x.bin_kg, x.spoiled_kg)));
+  $("nBars").innerHTML = DAYS_LONG.map((d, i) => {
+    const x = v.nights[i];
+    if (!x) return `<div class="col"><div class="pair"></div><span>${d.slice(0, 3)}</span></div>`;
+    return `<div class="col"><div class="pair"><i class="saved" style="height:${100 * x.saved_kg / max}%"></i><i class="binned" style="height:${100 * x.bin_kg / max}%"></i><i class="spoiled" style="height:${100 * x.spoiled_kg / max}%"></i></div><span>${d.slice(0, 3)} · ${euro(x.profit)}</span></div>`;
+  }).join("");
+}
+function renderWeek(v) {
+  const w = v.week_end;
+  $("wBins").innerHTML = `<div style="background:var(--bin)">Thrown away by the shop<b>${w.shop_bin_kg} kg</b></div>
+    <div style="background:#b07a3a">Spoiled in ${w.households} flats<b>${w.home_bin_kg} kg</b></div>
+    <div style="background:var(--bank)">Saved by the agent<b>${w.saved_kg} kg</b><span>profit ${euro(w.profit)}</span></div>`;
+  $("wBoard").innerHTML = (v.board || []).map(r => `<div><span>${r.rank}. ${esc(r.name)}</span><b>${r.points} pts</b></div>`).join("") || "<p>No phones joined this week.</p>";
+}
+/* ---------- guided tour, one stop per press of T ---------- */
+// a stop without targets ("at: []") is a story card in the middle of the dimmed screen
+const TOUR = [
+  { at: [], title: "The shop around the corner",
+    text: "Just around the corner from your university there is a small shop that stays open until 10 pm, the place where shared flats buy their dinner after a late lecture. Its owner can no longer pay for a night shift, so from this Monday an AI agent runs the evenings on its own." },
+  { at: [], title: "Your week",
+    text: "You are one of the shared flats that shop there. From Monday to Saturday you have €28 to put dinner and breakfast on the table, while the agent decides every evening what to mark down, what to give away and what ends up in the bin." },
+  { at: ["#scene"], title: "The corner shop",
+    text: "This is the shop from the inside. It opens every evening from 8 to 10 pm, and everything that happens in it this week plays out here." },
+  { at: ["#shelf"], title: "The shelf",
+    text: "Each compartment holds one product: the badge counts what is left, the tag shows the price, and Monday's delivery is already in." },
+  { at: ["#c-beef", "#c-sushi", "#c-eggs"], title: "Date labels",
+    text: "Every batch carries its date, red for today, yellow for tomorrow and green for later. Minced beef and sushi have a use-by date and must not be sold after it, while eggs have a best-before date and are still fine for a while after it." },
+  { at: ["#week"], title: "Six evenings",
+    text: "The week runs from Monday to Saturday with a delivery every morning; Wednesday brings a big one, Friday is the busiest evening, and Sunday the shop is closed." },
+  { at: ["#bin", "#crate", "#basket"], title: "Where leftovers go",
+    text: "At 10 pm the agent decides about everything that will not keep: the food bank van takes up to 15 kg if it was booked by 9 pm, the cashier may take five items home, and the rest goes in the bin." },
+  { at: ["#money"], title: "Profit",
+    text: "Up here is the profit of tonight and of the whole week, while the till on the counter counts tonight's takings. Every item costs the shop half its shelf price." },
+  { at: ["#goal", "#who"], title: "The Night Shift Agent",
+    text: "This is the AI agent. It has one goal, to make good money and waste as little food as possible, and it checks in at 8, 9 and 10 pm." },
+  { at: ["#tools"], title: "Its tools",
+    text: "It can act only through these tools: look at the shelf, read the house rules, mark down, book the food bank, hand on, bin and order tomorrow's delivery. The tool in use lights up." },
+  { at: ["#lobby"], title: "Your phone",
+    text: "During the evening the agent's steps and reasons appear here. Right now this is where you join: scan the code and give your shared flat a name." },
+  { at: ["#lobby"], title: "How your flat scores",
+    text: "A dinner needs a main (minced beef, sushi or eggs), a side (bread rolls or pasta) and something fresh (salad or strawberries) and scores 3 points; breakfast is yoghurt or milk with rolls or strawberries for 1 point. At 10 pm your flat cooks with what expires first, and whatever spoils in your fridge costs a point." },
+  { at: ["#ticker"], title: "Who bought what",
+    text: "Every purchase from your phones shows up down here with the name of your flat, so the whole room sees who shops when." },
+];
+function renderTour(stop) {
+  const on = Number.isInteger(stop) && stop >= 0 && stop < TOUR.length;
+  $("tourSpot").classList.toggle("on", on); $("tourCard").classList.toggle("on", on);
+  if (!on) return;
+  const t = TOUR[stop], story = !t.at.length;
+  $("tourSpot").classList.toggle("story", story); $("tourCard").classList.toggle("story", story);
+  $("tourStep").textContent = `${stop + 1} of ${TOUR.length}`;
+  $("tourTitle").textContent = t.title; $("tourText").textContent = t.text;
+  const card = $("tourCard");
+  if (story) {
+    Object.assign($("tourSpot").style, { left: innerWidth / 2 + "px", top: innerHeight / 2 + "px", width: "0px", height: "0px" });
+    card.style.left = (innerWidth - card.offsetWidth) / 2 + "px"; card.style.top = (innerHeight - card.offsetHeight) / 2 + "px";
+    return;
+  }
+  const rects = t.at.map(sel => document.querySelector(sel)).filter(el => el && el.offsetParent !== null).map(el => el.getBoundingClientRect());
+  if (!rects.length) return;
+  const pad = 10;
+  const r = { left: Math.min(...rects.map(x => x.left)) - pad, top: Math.min(...rects.map(x => x.top)) - pad,
+              right: Math.max(...rects.map(x => x.right)) + pad, bottom: Math.max(...rects.map(x => x.bottom)) + pad };
+  Object.assign($("tourSpot").style, { left: r.left + "px", top: r.top + "px", width: (r.right - r.left) + "px", height: (r.bottom - r.top) + "px" });
+  // place the card beside the spotlight where it fits: right, left, below, above, else bottom centre
+  const cw = card.offsetWidth, ch = card.offsetHeight, W = innerWidth, H = innerHeight, gap = 24;
+  const clampY = y => Math.max(12, Math.min(y, H - ch - 12)), clampX = x => Math.max(12, Math.min(x, W - cw - 12));
+  const spots = [
+    [r.right + gap, clampY(r.top), r.right + gap + cw <= W - 12],
+    [r.left - gap - cw, clampY(r.top), r.left - gap - cw >= 12],
+    [clampX(r.left), r.bottom + gap, r.bottom + gap + ch <= H - 12],
+    [clampX(r.left), r.top - gap - ch, r.top - gap - ch >= 12],
+  ];
+  const [x, y] = spots.find(s => s[2]) || [(W - cw) / 2, H - ch - 24];
+  card.style.left = x + "px"; card.style.top = y + "px";
+}
+function tourGo(delta) {
+  const now = Number.isInteger(V.control.tour) ? V.control.tour : -1;
+  const next = now + delta;
+  admin("control", { tour: next >= 0 && next < TOUR.length ? next : null });
+}
+
+function renderLobby(v) {
+  const url = v.control.join_url || location.origin + "/";
+  if ($("joinUrl").textContent !== url) { $("joinUrl").textContent = url; $("qr").src = "/api/qr.svg?u=" + encodeURIComponent(url); }
+  $("joined").textContent = v.players === 1 ? "1 flat has joined" : `${v.players} flats have joined`;
+}
+
+/* ---------- director ---------- */
+async function admin(action, body = {}) {
+  const r = await fetch("/api/admin/" + action, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": KEY }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  $("dMsg").textContent = r.ok ? "" : (j.detail || "error");
+  return j;
+}
+function renderDirector(v) {
+  if (!KEY) return;
+  const sel = $("dInjection");
+  if (sel.options.length === 1) DAYS_LONG.forEach((d, i) => sel.add(new Option("Injection on " + d, i)));
+  if (document.activeElement !== sel) sel.value = v.injection_day === null || v.injection_day === undefined ? "" : String(v.injection_day);
+  if (document.activeElement !== $("dMode")) $("dMode").value = v.mode;
+  $("dPause").classList.toggle("on", v.paused);
+  $("dFast").classList.toggle("on", v.fast);
+  $("dApproval").classList.toggle("on", !!v.approval);
+  $("dReveal").classList.toggle("on", !!v.control.reveal);
+  $("dBoard").classList.toggle("on", v.control.overlay === "week");
+  $("dContinue").disabled = v.phase !== "night";
+  $("dSkip").disabled = v.phase !== "open";
+  $("dReplay").disabled = !v.can_replay;
+}
+if (KEY) {
+  $("dTour").onclick = () => tourGo(1);
+  $("dStart").onclick = () => confirm("Start a new week? The current one is lost.") && admin("start_week", { mode: $("dMode").value });
+  $("dPause").onclick = () => admin("pause", { on: !V.paused });
+  $("dSkip").onclick = () => admin("skip");
+  $("dContinue").onclick = () => admin("continue");
+  $("dFast").onclick = () => admin("fast", { on: !V.fast });
+  $("dApproval").onclick = () => admin("approval", { on: !V.approval });
+  $("dInjection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
+  $("dReveal").onclick = () => admin("control", { reveal: !V.control.reveal });
+  $("dReplay").onclick = () => confirm("Play this evening again from 20:00, with owner approval? Purchases of this evening are undone.") && admin("replay");
+  $("dBoard").onclick = () => admin("control", { overlay: V.control.overlay === "week" ? null : "week" });
+  $("dReset").onclick = () => confirm("Reset the week? Phones stay joined.") && admin("reset");
+  $("dMode").onchange = e => admin("settings", { mode: e.target.value });
+  document.querySelectorAll("#apButtons button").forEach(b => b.onclick = () => V.pending && admin("decide", { id: V.pending.id, decision: b.dataset.d }));
+  addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    const k = e.key.toLowerCase();
+    if (k === " ") { e.preventDefault(); if (V.phase === "night") admin("continue"); else if (V.phase === "open") admin("skip"); }
+    if (k === "p") admin("pause", { on: !V.paused });
+    if (k === "f") admin("fast", { on: !V.fast });
+    if (k === "a") admin("approval", { on: !V.approval });
+    if (k === "r") admin("control", { reveal: !V.control.reveal });
+    if (k === "d") $("director").classList.toggle("pin");
+    if (k === "t") tourGo(e.shiftKey ? -1 : 1);
+    if (e.key === "Escape" && Number.isInteger(V.control.tour)) admin("control", { tour: null });
+  });
+}
+
+async function poll() {
+  try {
+    const r = await fetch(`/api/view?since=${since}&epoch=${epoch}`, { cache: "no-store" });
+    if (r.ok) render(await r.json());
+  } catch (e) { /* the next poll tries again */ }
+  setTimeout(poll, 450);
+}
+buildShelf(); fit(); poll();
+</script>
+</body>
+</html>

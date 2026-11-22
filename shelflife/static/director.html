@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shelf Life · Director</title>
+<link rel="stylesheet" href="/static/shelflife.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--night); color: var(--cream); font-family: var(--font); }
+  main { max-width: 520px; margin: 0 auto; padding: 14px 12px 40px; }
+  h1 { font: 900 24px/1 var(--display); color: var(--lamp); margin: 4px 0 10px; }
+  #state { background: #1b2640; border: 2px solid #26324f; border-radius: 12px; padding: 10px 12px; font: 700 15px/1.45 var(--font); }
+  h2 { font: 900 15px/1 var(--display); color: #9fb0cc; margin: 18px 0 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button, select { width: 100%; font: 800 16px/1.1 var(--font); padding: 13px 10px; border-radius: 12px; border: 2px solid #3a4d73; background: #1b2b4a; color: #e7eefc; }
+  button.on { background: var(--agent); border-color: #bfe0ff; }
+  button.big { grid-column: 1 / -1; background: var(--lamp); color: #2a1a05; border-color: #2b1d10; font-family: var(--display); font-size: 19px; }
+  button.warn { background: #6b1f1a; border-color: var(--due); }
+  button:disabled { opacity: .4; }
+  #pending { display: none; background: #fffaf0; color: #2a1a05; border: 3px solid var(--due); border-radius: 14px; padding: 12px; margin-top: 12px; }
+  #pending b { font: 900 18px/1.2 var(--display); display: block; }
+  #pending .grid { margin-top: 10px; }
+  #pending .yes { background: var(--ok); color: #fff; } #pending .no { background: var(--due); color: #fff; }
+  #msg { color: #ffb0a5; font-weight: 700; min-height: 1.2em; margin-top: 8px; }
+  label { display: block; font: 700 13px/1.3 var(--font); color: #9fb0cc; margin-top: 6px; }
+  input { width: 100%; font: 700 16px/1 var(--font); padding: 10px; border-radius: 10px; border: 2px solid #3a4d73; background: #10192e; color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Shelf Life · Director</h1>
+  <div id="state">…</div>
+  <div id="pending"><b id="pWhat"></b><span id="pWhy"></span>
+    <div class="grid"><button class="yes" data-d="approve">Approve</button><button class="no" data-d="reject">Reject</button></div></div>
+  <div id="msg"></div>
+
+  <h2>Guided tour of the shop</h2>
+  <div class="grid">
+    <button id="tourBack">Back</button>
+    <button id="tourNext">Next stop</button>
+    <button id="tourEnd" style="grid-column: 1 / -1">End the tour</button>
+  </div>
+
+  <h2>The evening</h2>
+  <div class="grid">
+    <button class="big" id="continue">Next evening</button>
+    <button id="pause">Pause</button>
+    <button id="skip">Close shop now</button>
+    <button id="fast">Fast forward</button>
+    <button id="reveal">Reveal the page</button>
+  </div>
+
+  <h2>Friday</h2>
+  <div class="grid">
+    <select id="injection"><option value="">No injection</option></select>
+    <button id="approval">Owner approval</button>
+    <button class="warn" id="replay" style="grid-column: 1 / -1">Play this evening again (with approval)</button>
+  </div>
+
+  <h2>The week</h2>
+  <div class="grid">
+    <select id="mode"><option value="llm">Language model</option><option value="rule">Fixed rule</option></select>
+    <button id="start">Start week</button>
+    <button id="board">Week summary</button>
+    <button class="warn" id="reset">Reset</button>
+  </div>
+
+  <h2>Settings</h2>
+  <label>Shop open, seconds per hour<input id="open" type="number" min="5" max="300"></label>
+  <label>Pause between the agent's steps, seconds<input id="pace" type="number" min="0" max="10" step="0.1"></label>
+  <label>Households in town (phones plus simulated)<input id="town" type="number" min="1" max="200"></label>
+</main>
+<script>
+const KEY = new URLSearchParams(location.hash.slice(1)).get("key");
+const $ = id => document.getElementById(id);
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+DAYS.forEach((d, i) => $("injection").add(new Option("Injection on " + d, i)));
+let S = null;
+const TOUR_STOPS = 13;  // the length of TOUR in beamer.html
+
+async function admin(action, body = {}) {
+  const r = await fetch("/api/admin/" + action, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": KEY }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  $("msg").textContent = r.ok ? "" : (j.detail || "error");
+  if (r.ok) render(j);
+}
+function render(s) {
+  S = s;
+  const phase = { lobby: "waiting to start", morning: "morning delivery", checkin: "agent check-in", open: "shop open", night: "closed, waiting for the next evening", week_over: "week over" }[s.phase] || s.phase;
+  $("state").innerHTML = `<b>${s.day_name || "No week yet"}</b> · ${phase}${s.paused ? " · paused" : ""}<br>${s.players} phones · ${s.mode === "llm" ? "language model" : "fixed rule"}${s.has_key ? "" : " (no model key)"}`;
+  $("pause").classList.toggle("on", s.paused);
+  $("fast").classList.toggle("on", s.fast);
+  $("approval").classList.toggle("on", s.approval);
+  $("reveal").classList.toggle("on", !!s.control.reveal);
+  $("board").classList.toggle("on", s.control.overlay === "week");
+  const stop = Number.isInteger(s.control.tour) ? s.control.tour : -1;
+  $("tourNext").textContent = stop < 0 ? "Start the tour" : stop + 1 < TOUR_STOPS ? `Next stop (${stop + 2} of ${TOUR_STOPS})` : "Finish";
+  $("tourBack").disabled = stop <= 0; $("tourEnd").disabled = stop < 0;
+  $("continue").disabled = s.phase !== "night";
+  $("skip").disabled = s.phase !== "open";
+  $("replay").disabled = !s.can_replay;
+  for (const [id, k] of [["open", "open_seconds"], ["pace", "step_pause"], ["town", "town"]]) if (document.activeElement !== $(id)) $(id).value = s[k];
+  if (document.activeElement !== $("injection")) $("injection").value = s.injection_day === null ? "" : String(s.injection_day);
+  if (document.activeElement !== $("mode")) $("mode").value = s.mode;
+  const p = s.pending;
+  $("pending").style.display = p ? "block" : "none";
+  if (p) {
+    $("pWhat").textContent = p.tool === "bin" ? `Bin ${p.quantity} ${p.product}?` : `Mark ${p.product} down ${p.percent} %?`;
+    $("pWhy").textContent = p.why ? `“${p.why}”` : "";
+  }
+}
+function tourGo(delta) {
+  const next = (Number.isInteger(S.control.tour) ? S.control.tour : -1) + delta;
+  admin("control", { tour: next >= 0 && next < TOUR_STOPS ? next : null });
+}
+$("tourNext").onclick = () => tourGo(1);
+$("tourBack").onclick = () => tourGo(-1);
+$("tourEnd").onclick = () => admin("control", { tour: null });
+$("continue").onclick = () => admin("continue");
+$("pause").onclick = () => admin("pause", { on: !S.paused });
+$("skip").onclick = () => admin("skip");
+$("fast").onclick = () => admin("fast", { on: !S.fast });
+$("reveal").onclick = () => admin("control", { reveal: !S.control.reveal });
+$("approval").onclick = () => admin("approval", { on: !S.approval });
+$("injection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
+$("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval?") && admin("replay");
+$("mode").onchange = e => admin("settings", { mode: e.target.value });
+$("start").onclick = () => confirm("Start a new week?") && admin("start_week", { mode: $("mode").value });
+$("board").onclick = () => admin("control", { overlay: S.control.overlay === "week" ? null : "week" });
+$("reset").onclick = () => confirm("Reset the week? Phones stay joined.") && admin("reset");
+$("open").onchange = e => admin("settings", { open_seconds: +e.target.value });
+$("pace").onchange = e => admin("settings", { step_pause: +e.target.value });
+$("town").onchange = e => admin("settings", { town: +e.target.value });
+document.querySelectorAll("#pending button").forEach(b => b.onclick = () => S.pending && admin("decide", { id: S.pending.id, decision: b.dataset.d }));
+
+async function poll() {
+  try {
+    const r = await fetch("/api/admin/status", { headers: { "X-Admin-Key": KEY }, cache: "no-store" });
+    if (r.status === 403) { $("state").textContent = "The director key is missing or wrong. Open /director#key=…"; return; }
+    if (r.ok) render(await r.json());
+  } catch (e) {}
+  setTimeout(poll, 1000);
+}
+poll();
+</script>
+</body>
+</html>

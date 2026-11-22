@@ -1,0 +1,15 @@
+[Unit]
+Description=Shelf Life live server
+
+[Service]
+WorkingDirectory=%h/shelf-life
+Environment="HOST=0.0.0.0"
+Environment="PORT=8030"
+Environment="SHELFLIFE_PUBLIC_URL=https://shelflife.hsos.uber.space/"
+# OPENAI_API_KEY and SHELFLIFE_ADMIN_KEY live only in this file on the server (chmod 600)
+EnvironmentFile=%h/.config/shelf-life.env
+ExecStart=%h/venv-shelflife/bin/python -m shelflife.server
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,18 @@
+/* Shared colours and type of Shelf Life. Colours carry meaning:
+   red = must go tonight, yellow = tomorrow, green = fine, blue = the agent,
+   teal = food bank, amber = cashier, dark green = bin. */
+:root {
+  --night: #0d1424;
+  --cream: #f5ecd7;
+  --lamp: #ffc65c;
+  --due: #e0453a;
+  --soon: #f2b632;
+  --fine: #8fd18a;
+  --ok: #3f9b55;
+  --agent: #2b8be6;
+  --bank: #1f9e86;
+  --cashier: #d9822b;
+  --bin: #3c5a45;
+  --font: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --display: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+}
