@@ -129,6 +129,7 @@ class Live:
         self.waiting: dict | None = None  # {"kind": before | after | night, "label": the director's next step}
         self.away_seconds = 45
         self.control = {"overlay": None, "reveal": False, "tour": None,  # tour: stop of the guided tour, or None
+                        "music": True, "fx": True,  # sound on the projector, switched separately
                         "join_url": os.environ.get("SHELFLIFE_PUBLIC_URL")}
 
     # ------------------------------------------------------------ players
@@ -798,6 +799,9 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
         for k in ("overlay", "reveal", "join_url", "tour"):
             if k in body:
                 live.control[k] = body[k]
+        for k in ("music", "fx"):
+            if k in body:
+                live.control[k] = bool(body[k])
         if not isinstance(live.control["tour"], int) or isinstance(live.control["tour"], bool):
             live.control["tour"] = None
     elif action == "settings":

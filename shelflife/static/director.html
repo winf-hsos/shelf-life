@@ -84,6 +84,12 @@
     <button id="reveal">Reveal<small>food bank page</small></button>
   </div>
 
+  <h2>Sound on the projector</h2>
+  <div class="grid">
+    <button id="music">Music</button>
+    <button id="sfx">Sound effects</button>
+  </div>
+
   <h2>Guided tour</h2>
   <div class="grid three">
     <button id="tourBack">Back</button>
@@ -184,6 +190,11 @@ function render(s) {
   $("fast").classList.toggle("on", s.fast);
   $("approval").classList.toggle("on", s.approval);
   $("reveal").classList.toggle("on", !!s.control.reveal);
+  for (const [id, k, what] of [["music", "music", "Music"], ["sfx", "fx", "Sound effects"]]) {
+    const on = s.control[k] !== false;
+    $(id).classList.toggle("on", on);
+    $(id).innerHTML = `${what}<small>${on ? "on: tap to switch off" : "off: tap to switch on"}</small>`;
+  }
   $("board").classList.toggle("on", s.control.overlay === "week");
   const ranked = s.control.overlay === "ranking";
   $("ranking").classList.toggle("on", ranked);
@@ -222,6 +233,8 @@ $("tourEnd").onclick = () => admin("control", { tour: null });
 $("pause").onclick = () => admin("pause", { on: !S.paused });
 $("fast").onclick = () => admin("fast", { on: !S.fast });
 $("reveal").onclick = () => admin("control", { reveal: !S.control.reveal });
+$("music").onclick = () => admin("control", { music: S.control.music === false });
+$("sfx").onclick = () => admin("control", { fx: S.control.fx === false });
 $("approval").onclick = () => admin("approval", { on: !S.approval });
 $("injection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
 $("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval? Purchases of this evening are undone.") && admin("replay");

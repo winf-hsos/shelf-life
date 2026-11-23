@@ -1045,6 +1045,8 @@ function playSounds(v, reset) {
   // music: livelier while the shop is open, quieter during a pause and the guided tour
   Sound.mood(phase === "open" ? "open" : "calm");
   Sound.duck(v.paused || Number.isInteger(v.control.tour));
+  Sound.set("music", v.control.music !== false);
+  Sound.set("fx", v.control.fx !== false);
   $("dMusic").classList.toggle("on", Sound.on.music);
   $("dSound").classList.toggle("on", Sound.on.fx);
 }
@@ -1356,8 +1358,10 @@ if (KEY) {
   $("dFast").onclick = () => admin("fast", { on: !V.fast });
   $("dApproval").onclick = () => admin("approval", { on: !V.approval });
   $("dHide").onclick = () => toggleBar();
-  $("dMusic").onclick = () => SOUND && Sound.toggle("music");
-  $("dSound").onclick = () => SOUND && Sound.toggle("fx");
+  // music and effects are switched in the shared state, so the director page and this page agree
+  const switchSound = k => admin("control", { [k]: V.control[k] === false });
+  $("dMusic").onclick = () => switchSound("music");
+  $("dSound").onclick = () => switchSound("fx");
   $("dReveal").onclick = () => admin("control", { reveal: !V.control.reveal });
   $("dReplay").onclick = () => confirm("Play this evening again from 20:00, with owner approval? Purchases of this evening are undone.") && admin("replay");
   $("dBoard").onclick = () => admin("control", { overlay: V.control.overlay === "week" ? null : "week" });
@@ -1375,8 +1379,8 @@ if (KEY) {
     if (k === "r") admin("control", { reveal: !V.control.reveal });
     if (k === "d") $("director").classList.toggle("pin");
     if (k === "h") toggleBar();
-    if (k === "m" && SOUND) Sound.toggle("music");
-    if (k === "s" && SOUND) Sound.toggle("fx");
+    if (k === "m") switchSound("music");
+    if (k === "s") switchSound("fx");
     if (k === "c") toggleCtx();
     if (k === "l") admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
     if (k === "t") tourGo(e.shiftKey ? -1 : 1);

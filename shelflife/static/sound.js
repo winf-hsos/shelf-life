@@ -4,12 +4,10 @@
  *
  *   Sound.fx("bin")          one effect
  *   Sound.mood("open")       background music for a phase: calm | open | off
- *   Sound.toggle("music")    on/off, remembered in this browser
+ *   Sound.set("music", false) on/off; the director switches music and effects separately
  */
 const Sound = (() => {
-  const store = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v === "on"; } catch (e) { return d; } };
-  const keep = (k, on) => { try { localStorage.setItem(k, on ? "on" : "off"); } catch (e) {} };
-  const state = { fx: store("shelflife-fx", true), music: store("shelflife-music", true) };
+  const state = { fx: true, music: true };
   let ctx = null, out, fxBus, musicBus, noiseBuf, mood = "off", ducked = false, timer = null;
   const last = {};  // effect name -> time, for rate limits
 
@@ -204,7 +202,7 @@ const Sound = (() => {
     fx,
     mood(m) { if (m !== mood) { mood = m; musicLevel(); } },
     duck(on) { if (on !== ducked) { ducked = on; musicLevel(); } },
-    toggle(what) { state[what] = !state[what]; keep(what === "fx" ? "shelflife-fx" : "shelflife-music", state[what]); unlock(); musicLevel(); return state[what]; },
+    set(what, on) { if (state[what] !== on) { state[what] = on; musicLevel(); } },
     get on() { return { ...state, running: ready() }; },
   };
 })();
