@@ -87,8 +87,11 @@ The big button on `/director`, and the first button of the projector's bar, alwa
 (*Start the 21:00 check-in*, *Open the shop until 22:00*, *Start Tuesday evening*); while the evening waits,
 the projector's bar stays visible.
 
+*Show the ranking* lists every flat on a phone (simulated students are left out) with points, dinners,
+breakfasts, spoiled items and money left, across the whole projector; it closes when the evening goes on.
+
 Keyboard on the projector page with the key: Space goes on (or closes the shop early while it is open),
-P pause, F fast forward, A owner approval, R reveal the food bank page, D pin the bar.
+L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, D pin the bar.
 
 - **Owner approval:** binning more than 10 items or a markdown above 50 % waits for *Approve* or
   *Reject* on the projector or the director's phone.

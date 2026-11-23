@@ -468,13 +468,14 @@ class Live:
     def board(self, shop: LiveShop | None) -> list[dict]:
         if not shop:
             return []
-        rows = sorted(((self.name_of(pid), h) for pid, h in shop.flats.items()), key=lambda x: -x[1].points)
+        # only the phones: simulated students are not in shop.flats
+        rows = sorted(((self.name_of(pid), h) for pid, h in shop.flats.items()), key=lambda x: (-x[1].points, x[0].lower()))
         out, rank, last = [], 0, None
         for i, (name, h) in enumerate(rows):
             if h.points != last:
                 rank, last = i + 1, h.points
             out.append({"rank": rank, "name": name, "points": h.points, "meals": h.meals,
-                        "breakfasts": h.breakfasts, "spoiled": h.spoiled})
+                        "breakfasts": h.breakfasts, "spoiled": h.spoiled, "budget": round(h.budget, 2)})
         return out
 
     def week_end(self, shop: LiveShop) -> dict:
@@ -523,6 +524,8 @@ class Live:
                 "nights": self.nights(shop),
                 "can_replay": self.snap is not None,
             }
+            if self.control.get("overlay") == "ranking":
+                out["ranking"] = self.board(shop)
             if self.phase == "week_over" or self.control.get("overlay") in ("board", "week"):
                 out["board"] = self.board(shop)[:10]
                 out["week_end"] = self.week_end(shop)
@@ -714,6 +717,8 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
         await live.start_week()
     elif action == "continue":
         live.go = True
+        if live.waiting and live.control.get("overlay") == "ranking":
+            live.control["overlay"] = None  # the evening goes on, so the shop shows again
     elif action == "pause":
         live.paused = bool(body.get("on", not live.paused))
     elif action == "skip":

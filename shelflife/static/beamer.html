@@ -242,6 +242,19 @@
   #tourCard p { margin: 0; font-size: 20px; line-height: 1.4; }
 
   #weekend .card { width: 94%; }
+  #ranking { position: fixed; inset: 0; z-index: 150; background: rgba(4, 8, 16, .72); }
+  #ranking .card { width: min(94vw, 1700px); max-height: 92vh; display: flex; flex-direction: column; }
+  #ranking h2 { font-size: calc(var(--u) * 3.4); }
+  #ranking h2 small { font: 700 calc(var(--u) * 1.6)/1 var(--font); color: #7a6a4a; margin-left: calc(var(--u) * 1); }
+  #rTable { display: grid; grid-auto-flow: column; gap: 0 calc(var(--u) * 3); min-height: 0; }
+  .rrow { display: grid; grid-template-columns: calc(var(--u) * 3.2) minmax(0, 1fr) repeat(4, calc(var(--u) * 7.6)) calc(var(--u) * 8.6); align-items: baseline;
+          gap: calc(var(--u) * .8); font-size: calc(var(--u) * 2); padding: calc(var(--u) * .45) 0; border-bottom: 2px dotted #d9ccb0; font-variant-numeric: tabular-nums; }
+  .rrow > :nth-child(n+3) { text-align: right; }
+  .rrow b { font: 900 calc(var(--u) * 2.3)/1 var(--display); }
+  .rrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+  .rrow.head { font: 800 calc(var(--u) * 1.25)/1.1 var(--font); color: #7a6a4a; text-transform: uppercase; letter-spacing: .04em; border-bottom: 3px solid #2b1d10; }
+  .rrow.top .nm::before { content: "\2605  "; color: #d99a1a; }
+  .rrow .neg { color: var(--due); }
   .bins { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: calc(var(--u) * 1.6); text-align: center; }
   .bins div { border-radius: calc(var(--u) * 1); padding: calc(var(--u) * 1); color: #fff; }
   .bins b { display: block; font: 900 calc(var(--u) * 3.4)/1.1 var(--display); }
@@ -387,6 +400,10 @@
           <h3>Best-fed flats</h3>
           <div class="board" id="wBoard"></div>
         </div></div>
+        <div class="overlay" id="ranking"><div class="card">
+          <h2 id="rTitle">Ranking</h2>
+          <div id="rTable"></div>
+        </div></div>
       </div>
       <div id="ticker"><em>Who bought what tonight</em></div>
     </div>
@@ -436,10 +453,11 @@
   <button id="dReveal">Reveal the page</button>
   <button id="dReplay" class="warn">Play this evening again</button>
   <span class="sep"></span>
+  <button id="dRanking">Ranking (L)</button>
   <button id="dBoard">Week summary</button>
   <button id="dReset" class="warn">Reset</button>
   <span class="msg" id="dMsg"></span>
-  <span class="keys">Space go on · P pause · F fast · A approval · R reveal · D pin bar</span>
+  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · D pin bar</span>
 </div>
 
 <script>
@@ -827,7 +845,10 @@ function render(v) {
   lastRevealed = v.control.reveal;
 
   // night summary
-  const nightOn = phase === "night" && v.control.overlay !== "hide";
+  const rankOn = v.control.overlay === "ranking" && !!v.ranking;
+  $("ranking").classList.toggle("on", rankOn);
+  if (rankOn) renderRanking(v);
+  const nightOn = phase === "night" && v.control.overlay !== "hide" && !rankOn;
   $("night").classList.toggle("on", nightOn);
   if (nightOn && v.nights && v.nights.length) renderNight(v);
   const weekOn = phase === "week_over" || v.control.overlay === "week";
@@ -865,6 +886,19 @@ function renderWeek(v) {
     <div style="background:#b07a3a">Spoiled in ${w.households} flats<b>${w.home_bin_kg} kg</b></div>
     <div style="background:var(--bank)">Saved by the agent<b>${w.saved_kg} kg</b><span>profit ${euro(w.profit)}</span></div>`;
   $("wBoard").innerHTML = (v.board || []).map(r => `<div><span>${r.rank}. ${esc(r.name)}</span><b>${r.points} pts</b></div>`).join("") || "<p>No phones joined this week.</p>";
+}
+function renderRanking(v) {
+  const last = v.nights && v.nights.length ? v.nights[v.nights.length - 1].day : null;
+  const rows = v.ranking;
+  $("rTitle").innerHTML = (last ? `Ranking after ${last}` : "Ranking") + `<small>${rows.length} ${rows.length === 1 ? "flat" : "flats"} on phones</small>`;
+  if (!rows.length) { $("rTable").innerHTML = "<p>No phones have joined yet.</p>"; return; }
+  const perCol = rows.length > 14 ? Math.ceil(rows.length / 2) : rows.length;
+  const head = `<div class="rrow head"><span>#</span><span>Flat</span><span>Points</span><span>Dinners</span><span>Breakfasts</span><span>Spoiled</span><span>Money left</span></div>`;
+  $("rTable").style.gridTemplateRows = `repeat(${perCol + 1}, auto)`;
+  const cols = [rows.slice(0, perCol), rows.slice(perCol)].filter(c => c.length);
+  $("rTable").innerHTML = cols.map(c => head + c.map(r => `<div class="rrow${r.rank === 1 ? " top" : ""}"><span>${r.rank}.</span><span class="nm">${esc(r.name)}</span>`
+    + `<b class="${r.points < 0 ? "neg" : ""}">${r.points}</b><span>${r.meals}</span><span>${r.breakfasts}</span><span>${r.spoiled}</span><span>${euro(r.budget)}</span></div>`).join("")
+    + "<div></div>".repeat(perCol - c.length)).join("");
 }
 /* ---------- guided tour, one stop per press of T ---------- */
 // a stop without targets ("at: []") is a story card in the middle of the dimmed screen
@@ -958,6 +992,7 @@ function renderDirector(v) {
   $("dApproval").classList.toggle("on", !!v.approval);
   $("dReveal").classList.toggle("on", !!v.control.reveal);
   $("dBoard").classList.toggle("on", v.control.overlay === "week");
+  $("dRanking").classList.toggle("on", v.control.overlay === "ranking");
   $("dContinue").disabled = !v.waiting;
   $("dContinue").textContent = v.waiting ? v.waiting.label : v.phase === "checkin" ? "The agent is working …" : v.phase === "open" ? "Shop open" : "Next";
   $("director").classList.toggle("waiting", !!v.waiting);
@@ -976,6 +1011,7 @@ if (KEY) {
   $("dReveal").onclick = () => admin("control", { reveal: !V.control.reveal });
   $("dReplay").onclick = () => confirm("Play this evening again from 20:00, with owner approval? Purchases of this evening are undone.") && admin("replay");
   $("dBoard").onclick = () => admin("control", { overlay: V.control.overlay === "week" ? null : "week" });
+  $("dRanking").onclick = () => admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
   $("dReset").onclick = () => confirm("Reset the week? Phones stay joined.") && admin("reset");
   $("dMode").onchange = e => admin("settings", { mode: e.target.value });
   document.querySelectorAll("#apButtons button").forEach(b => b.onclick = () => V.pending && admin("decide", { id: V.pending.id, decision: b.dataset.d }));
@@ -988,6 +1024,7 @@ if (KEY) {
     if (k === "a") admin("approval", { on: !V.approval });
     if (k === "r") admin("control", { reveal: !V.control.reveal });
     if (k === "d") $("director").classList.toggle("pin");
+    if (k === "l") admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
     if (k === "t") tourGo(e.shiftKey ? -1 : 1);
     if (e.key === "Escape" && Number.isInteger(V.control.tour)) admin("control", { tour: null });
   });

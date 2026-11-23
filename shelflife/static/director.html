@@ -51,6 +51,8 @@
   #pending button { min-height: 76px; font: 900 22px/1 var(--display); border: 0; }
   #pending .yes { background: var(--ok); color: #fff; } #pending .no { background: var(--due); color: #fff; }
 
+  button.rank { margin-top: 12px; min-height: 72px; font: 900 21px/1.15 var(--display); background: #2a3f66; border-color: #4a6496; }
+  button.rank.on { background: var(--agent); border-color: #bfe0ff; }
   #msg { color: #ffb0a5; font-weight: 700; min-height: 1.2em; margin-top: 10px; }
   label { display: block; font: 700 13px/1.3 var(--font); color: #9fb0cc; margin-top: 10px; }
   input { width: 100%; font: 700 17px/1 var(--font); padding: 12px; border-radius: 12px; border: 2px solid #3a4d73; background: #10192e; color: #fff; margin-top: 4px; }
@@ -73,6 +75,7 @@
   </div>
 
   <button id="next"><b id="nextLabel">…</b><small id="nextHint"></small></button>
+  <button id="ranking" class="rank">Show the ranking<small>all flats on phones: points, meals, money left</small></button>
   <div id="msg"></div>
 
   <div class="grid three" style="margin-top: 8px">
@@ -180,6 +183,10 @@ function render(s) {
   $("approval").classList.toggle("on", s.approval);
   $("reveal").classList.toggle("on", !!s.control.reveal);
   $("board").classList.toggle("on", s.control.overlay === "week");
+  const ranked = s.control.overlay === "ranking";
+  $("ranking").classList.toggle("on", ranked);
+  $("ranking").disabled = s.phase === "lobby";
+  $("ranking").innerHTML = ranked ? "Hide the ranking<small>back to the shop</small>" : "Show the ranking<small>all flats on phones: points, meals, money left</small>";
   $("holds").classList.toggle("on", s.holds);
   $("holds").innerHTML = `Stop before and after each check-in<small>${s.holds ? "on: the big button moves the evening on" : "off: the evening runs by itself"}</small>`;
   const stop = Number.isInteger(s.control.tour) ? s.control.tour : -1;
@@ -216,6 +223,7 @@ $("injection").onchange = e => admin("injection", { day: e.target.value === "" ?
 $("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval? Purchases of this evening are undone.") && admin("replay");
 $("mode").onchange = e => admin("settings", { mode: e.target.value });
 $("start").onclick = () => confirm("Start a new week? The current one is lost.") && admin("start_week", { mode: $("mode").value });
+$("ranking").onclick = () => admin("control", { overlay: S.control.overlay === "ranking" ? null : "ranking" });
 $("board").onclick = () => admin("control", { overlay: S.control.overlay === "week" ? null : "week" });
 $("reset").onclick = () => confirm("Reset the week? Phones stay joined.") && admin("reset");
 $("holds").onclick = () => admin("settings", { holds: !S.holds });
