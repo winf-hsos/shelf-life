@@ -124,6 +124,8 @@ class Live:
         self.approval_seq = 0
         self.last_step_t = 0.0
         self.busy = False  # the agent is in a check-in
+        self.holds = True  # stop before and after every check-in until the director goes on
+        self.waiting: dict | None = None  # {"kind": before | after | night, "label": the director's next step}
         self.away_seconds = 45
         self.control = {"overlay": None, "reveal": False, "tour": None,  # tour: stop of the guided tour, or None
                         "join_url": os.environ.get("SHELFLIFE_PUBLIC_URL")}
@@ -224,7 +226,8 @@ class Live:
             while shop.day + 1 < SHOP_DAYS:
                 await self.evening(shop)
                 self.phase = "night"
-                await self.wait_go()
+                last = shop.day + 1 >= SHOP_DAYS
+                await self.wait_go("night", "Show the week's result" if last else f"Start {DAYS[shop.day + 1]} evening")
             self.phase = "week_over"
             self.control["overlay"] = "week"
         except asyncio.CancelledError:
@@ -232,10 +235,15 @@ class Live:
         except Stale:
             pass
 
-    async def wait_go(self) -> None:
+    async def wait_go(self, kind: str, label: str) -> None:
+        """Wait until the director goes on; the label names the step that follows."""
         self.go = False
-        while not self.go:
-            await asyncio.sleep(0.2)
+        self.waiting = {"kind": kind, "label": label}
+        try:
+            while not self.go:
+                await asyncio.sleep(0.2)
+        finally:
+            self.waiting = None
         self.go = False
 
     async def evening(self, shop: LiveShop) -> None:
@@ -249,8 +257,13 @@ class Live:
         for c in range(3):
             shop.checkin = c
             shop.closing = c == 2
+            if self.holds:
+                self.phase = "checkin"
+                await self.wait_go("before", f"Start the {CHECKINS[c]} check-in")
             await self.checkin(shop, c)
             if c < 2:
+                if self.holds:
+                    await self.wait_go("after", f"Open the shop until {CHECKINS[c + 1]}")
                 await self.open_phase(shop, c)
         with LOCK:
             shop.close()
@@ -500,6 +513,7 @@ class Live:
                 "steps": [self.step_view(s) for s in shop.steps if s["day"] == shop.day],
                 "busy": self.busy, "thinking": self.busy and isinstance(self.manager, LLMManager) and time.time() - self.last_step_t > 0.9 and not self.paused,
                 "model_down": isinstance(self.manager, LLMManager) and self.manager.down,
+                "waiting": self.waiting,
                 "note": {"text": shop.note, "day": day_name(shop.note_day)} if shop.note else None,
                 "approval": self.approval_flag(shop),
                 "approval_from": shop.approval_from, "injection_day": shop.injection_day,
@@ -676,7 +690,8 @@ def status() -> dict:
             "approval": bool(shop and live.approval_flag(shop)),
             "injection_day": shop.injection_day if shop else 4, "pending": live.pending,
             "can_replay": live.snap is not None, "open_seconds": live.open_seconds, "step_pause": live.step_pause,
-            "town": live.town, "control": live.control,
+            "town": live.town, "control": live.control, "waiting": live.waiting, "holds": live.holds,
+            "busy": live.busy, "time_left": round(live.time_left(), 1), "clock": live.clock()[0],
             "player_list": sorted(p["name"] for p in live.players.values())}
 
 
@@ -741,6 +756,8 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
             live.mode = str(body["mode"])
         if "effort" in body:
             live.effort = str(body["effort"])
+        if "holds" in body:
+            live.holds = bool(body["holds"])
     elif action == "reset":
         await live.stop()
         live.shop = live.manager = live.snap = None

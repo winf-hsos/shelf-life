@@ -308,6 +308,11 @@
   #director button, #director select { font: 700 13px/1 var(--font); padding: 7px 10px; border-radius: 8px; border: 1px solid #3a4d73; background: #1b2b4a; color: #e7eefc; cursor: pointer; }
   #director button.on { background: var(--agent); border-color: #bfe0ff; }
   #director button.warn { background: #6b1f1a; border-color: var(--due); }
+  #director button.next { font: 900 17px/1 var(--display); padding: 11px 18px; border-radius: 12px; background: var(--lamp); color: #2a1a05; border: 2px solid #2b1d10; }
+  #director button.next:disabled { background: #1b2b4a; color: #7f93b7; border-color: #3a4d73; cursor: default; }
+  #director.waiting { transform: none; }
+  #director.waiting button.next { animation: nudge 1.6s ease-in-out infinite; }
+  @keyframes nudge { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 200, 80, .6); } 50% { box-shadow: 0 0 0 10px rgba(255, 200, 80, 0); } }
   #director .sep { width: 1px; height: 24px; background: #3a4d73; margin: 0 4px; }
   #director .msg { color: #ffb0a5; font: 700 13px/1.2 var(--font); }
   #director .keys { color: #7f93b7; font: 600 12px/1.2 var(--font); margin-left: auto; }
@@ -416,13 +421,14 @@
 <div id="tourSpot"></div>
 <div id="tourCard"><small id="tourStep"></small><b id="tourTitle"></b><p id="tourText"></p></div>
 <div id="director">
+  <button id="dContinue" class="next" disabled>Next</button>
+  <span class="sep"></span>
   <select id="dMode"><option value="llm">Language model</option><option value="rule">Fixed rule</option></select>
   <button id="dTour">Tour (T)</button>
   <button id="dStart">Start week</button>
   <span class="sep"></span>
   <button id="dPause">Pause</button>
   <button id="dSkip">Close shop now</button>
-  <button id="dContinue">Next evening</button>
   <button id="dFast">Fast</button>
   <span class="sep"></span>
   <button id="dApproval">Owner approval</button>
@@ -433,7 +439,7 @@
   <button id="dBoard">Week summary</button>
   <button id="dReset" class="warn">Reset</button>
   <span class="msg" id="dMsg"></span>
-  <span class="keys">Space next · P pause · F fast · A approval · R reveal · D pin bar</span>
+  <span class="keys">Space go on · P pause · F fast · A approval · R reveal · D pin bar</span>
 </div>
 
 <script>
@@ -737,7 +743,9 @@ function render(v) {
   const ph = $("phase");
   const label = { lobby: "Waiting for flats to join", morning: "Morning delivery", checkin: "Night Shift Agent check-in", open: "Shop open", night: "Closed for the night", week_over: "The week is over" }[phase] || phase;
   ph.className = phase === "open" ? "open" : phase === "checkin" ? "checkin" : "";
-  ph.innerHTML = (v.paused ? "⏸ " : "") + label + (phase === "open" ? `<span class="bar"><i style="width:${100 * (1 - v.time_left / v.open_seconds)}%"></i></span>` : "");
+  const W = v.waiting;
+  const shown = W && W.kind === "before" ? `Check-in at ${v.clock} next` : W && W.kind === "after" ? "Check-in done · the shop opens next" : label;
+  ph.innerHTML = (v.paused ? "⏸ " : "") + shown + (phase === "open" ? `<span class="bar"><i style="width:${100 * (1 - v.time_left / v.open_seconds)}%"></i></span>` : "");
 
   if (v.shelf) renderShelf(v.shelf);
   {
@@ -763,6 +771,7 @@ function render(v) {
   else if (v.thinking) setBubble("", `<span class="label">Thinking</span><span class="dots"><i></i><i></i><i></i></span>`);
   if (phase === "open" && lastPhase !== "open") setBubble("", `<span class="label">Off the floor</span>The shop is open. The agent waits for its next check-in.`);
   if (phase === "lobby") setBubble("", "Off duty until 20:00.");
+  else if (v.waiting && v.waiting.kind === "before" && !v.pending && !v.model_down) setBubble("", `<span class="label">Off the floor</span>Next check-in at ${v.clock}.`);
   else if (v.model_down && !v.thinking && !v.pending) setBubble("down", `<span class="label">The language model does not answer</span>${DOWN}`);
 
   // note for tomorrow
@@ -949,7 +958,9 @@ function renderDirector(v) {
   $("dApproval").classList.toggle("on", !!v.approval);
   $("dReveal").classList.toggle("on", !!v.control.reveal);
   $("dBoard").classList.toggle("on", v.control.overlay === "week");
-  $("dContinue").disabled = v.phase !== "night";
+  $("dContinue").disabled = !v.waiting;
+  $("dContinue").textContent = v.waiting ? v.waiting.label : v.phase === "checkin" ? "The agent is working …" : v.phase === "open" ? "Shop open" : "Next";
+  $("director").classList.toggle("waiting", !!v.waiting);
   $("dSkip").disabled = v.phase !== "open";
   $("dReplay").disabled = !v.can_replay;
 }
@@ -971,7 +982,7 @@ if (KEY) {
   addEventListener("keydown", e => {
     if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
     const k = e.key.toLowerCase();
-    if (k === " ") { e.preventDefault(); if (V.phase === "night") admin("continue"); else if (V.phase === "open") admin("skip"); }
+    if (k === " ") { e.preventDefault(); if (V.waiting) admin("continue"); else if (V.phase === "open") admin("skip"); }
     if (k === "p") admin("pause", { on: !V.paused });
     if (k === "f") admin("fast", { on: !V.fast });
     if (k === "a") admin("approval", { on: !V.approval });

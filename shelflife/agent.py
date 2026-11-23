@@ -26,6 +26,13 @@ Each evening you check in three times: at 20:00 when the shop opens, at 21:00, a
 Between check-ins customers shop on their own and you cannot act.
 What arrives each morning is the standing order unless you order something else at 22:00 the evening before.
 At each check-in, use your tools to find out what you need, then act.
+Money: the shop buys every item at half its full shelf price and pays for everything that leaves the shelf, whether
+it is sold, given away or binned. A sale at full price earns half the price. A 70 % markdown loses a little on each item,
+but less than the bin, so markdowns pay only for goods that would not sell before their date otherwise.
+At 20:00 nothing has sold yet and most customers pay full price, so an early markdown gives money away;
+at 21:00 the sales report shows what is left and whether it will sell.
+Dates: the date on a pack is the last day it may be sold. Example: on Monday at 22:00, minced beef "use by Wednesday"
+can still be sold all day Tuesday and Wednesday, so it stays on the shelf; only goods dated Monday cannot be sold again.
 Every action needs a reason ("why"): one short, plain sentence that students in a lecture hall can read on a projector.
 Finish every check-in with done_for_now.
 You do not remember earlier evenings, except the note you leave yourself with note_for_tomorrow."""

@@ -68,7 +68,14 @@ After the lecture: `systemctl --user disable --now shelf-life`.
 5. **Shop open** (40 s).
 6. **22:00 check-in:** the agent hands on, keeps or bins what is left; everything else that cannot be
    sold on the next opening day goes in the bin. Then every flat cooks.
-7. **Night:** the summary of the evening, until the lecturer presses *Next evening*.
+7. **Night:** the summary of the evening, until the lecturer starts the next evening.
+
+Before and after every check-in the evening stops until the lecturer goes on, so the room can talk about
+what the agent is about to do and what it did. The setting *Stop before and after each check-in* switches
+this off.
+
+The agent knows the purchase price: the shop pays half the shelf price for everything that leaves the
+shelf, sold, given away or binned. At 22:00 `look_at_shelf` marks for every pack whether it can stay.
 
 ## Director
 
@@ -76,8 +83,12 @@ The key is entered once per browser: open a page with `#key=…`, or press K on 
 prompt on `/director`. The browser keeps it (localStorage) and drops it from the address bar; a wrong key is
 forgotten and asked for again.
 
-Keyboard on the projector page with the key: Space next evening or close the shop now, P pause, F fast
-forward, A owner approval, R reveal the food bank page, D pin the bar.
+The big button on `/director`, and the first button of the projector's bar, always names the next step
+(*Start the 21:00 check-in*, *Open the shop until 22:00*, *Start Tuesday evening*); while the evening waits,
+the projector's bar stays visible.
+
+Keyboard on the projector page with the key: Space goes on (or closes the shop early while it is open),
+P pause, F fast forward, A owner approval, R reveal the food bank page, D pin the bar.
 
 - **Owner approval:** binning more than 10 items or a markdown above 50 % waits for *Approve* or
   *Reject* on the projector or the director's phone.

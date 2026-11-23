@@ -8,65 +8,105 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--night); color: var(--cream); font-family: var(--font); }
-  main { max-width: 520px; margin: 0 auto; padding: 14px 12px 40px; }
-  h1 { font: 900 24px/1 var(--display); color: var(--lamp); margin: 4px 0 10px; }
-  #state { background: #1b2640; border: 2px solid #26324f; border-radius: 12px; padding: 10px 12px; font: 700 15px/1.45 var(--font); }
-  h2 { font: 900 15px/1 var(--display); color: #9fb0cc; margin: 18px 0 8px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  button, select { width: 100%; font: 800 16px/1.1 var(--font); padding: 13px 10px; border-radius: 12px; border: 2px solid #3a4d73; background: #1b2b4a; color: #e7eefc; }
-  button.on { background: var(--agent); border-color: #bfe0ff; }
-  button.big { grid-column: 1 / -1; background: var(--lamp); color: #2a1a05; border-color: #2b1d10; font-family: var(--display); font-size: 19px; }
+  main { max-width: 560px; margin: 0 auto; padding: 14px 14px 48px; }
+  h1 { font: 900 22px/1 var(--display); color: var(--lamp); margin: 4px 0 12px; display: flex; justify-content: space-between; align-items: baseline; }
+  h1 small { font: 700 13px/1 var(--font); color: #9fb0cc; }
+  h2 { font: 900 15px/1 var(--display); color: #9fb0cc; margin: 26px 0 10px; letter-spacing: .02em; }
+
+  /* where the evening stands */
+  #now { background: #1b2640; border: 2px solid #26324f; border-radius: 18px; padding: 14px 16px; }
+  #now .where { display: flex; justify-content: space-between; align-items: baseline; font: 900 26px/1.1 var(--display); color: #fff; }
+  #now .where span { color: var(--lamp); }
+  #nowWhat { font: 700 17px/1.35 var(--font); margin-top: 6px; color: #e7eefc; }
+  #nowMeta { font: 600 13px/1.3 var(--font); margin-top: 6px; color: #9fb0cc; }
+
+  /* the one button that moves the evening on */
+  #next { display: block; width: 100%; margin-top: 14px; min-height: 108px; padding: 16px 18px; border-radius: 22px; cursor: pointer; text-align: left;
+          border: 3px solid #2b1d10; background: var(--lamp); color: #2a1a05; box-shadow: 0 6px 0 #8a5a12; transition: transform .08s, box-shadow .08s; }
+  #next b { display: block; font: 900 26px/1.15 var(--display); }
+  #next small { display: block; font: 700 15px/1.3 var(--font); margin-top: 6px; opacity: .8; }
+  #next:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #8a5a12; }
+  #next.go { animation: nudge 1.6s ease-in-out infinite; }
+  #next.soft { background: #2a3f66; color: #fff; border-color: #4a6496; box-shadow: 0 6px 0 #14213a; }
+  #next:disabled { background: #1b2640; color: #9fb0cc; border-color: #26324f; box-shadow: none; cursor: default; animation: none; }
+  @keyframes nudge { 0%, 100% { box-shadow: 0 6px 0 #8a5a12, 0 0 0 0 rgba(255, 200, 80, .55); } 50% { box-shadow: 0 6px 0 #8a5a12, 0 0 0 12px rgba(255, 200, 80, 0); } }
+
+  /* all other buttons */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .wide { grid-column: 1 / -1; }
+  button, select { width: 100%; min-height: 60px; font: 800 17px/1.15 var(--font); padding: 12px 10px; border-radius: 16px; cursor: pointer;
+                   border: 2px solid #3a4d73; background: #1b2b4a; color: #e7eefc; }
+  select { appearance: none; text-align: center; }
+  button.on { background: var(--agent); border-color: #bfe0ff; color: #fff; }
   button.warn { background: #6b1f1a; border-color: var(--due); }
-  button:disabled { opacity: .4; }
-  #pending { display: none; background: #fffaf0; color: #2a1a05; border: 3px solid var(--due); border-radius: 14px; padding: 12px; margin-top: 12px; }
-  #pending b { font: 900 18px/1.2 var(--display); display: block; }
-  #pending .grid { margin-top: 10px; }
+  button:disabled { opacity: .35; cursor: default; }
+  button small { display: block; font: 600 12px/1.2 var(--font); opacity: .75; margin-top: 3px; }
+
+  #pending { display: none; background: #fffaf0; color: #2a1a05; border: 4px solid var(--due); border-radius: 20px; padding: 16px; margin-top: 14px; }
+  #pending .ask { font: 800 13px/1 var(--font); text-transform: uppercase; letter-spacing: .06em; color: var(--due); }
+  #pending b { font: 900 24px/1.2 var(--display); display: block; margin-top: 6px; }
+  #pending .why { display: block; font: 600 16px/1.35 var(--font); margin-top: 6px; }
+  #pending .grid { margin-top: 14px; }
+  #pending button { min-height: 76px; font: 900 22px/1 var(--display); border: 0; }
   #pending .yes { background: var(--ok); color: #fff; } #pending .no { background: var(--due); color: #fff; }
-  #msg { color: #ffb0a5; font-weight: 700; min-height: 1.2em; margin-top: 8px; }
-  label { display: block; font: 700 13px/1.3 var(--font); color: #9fb0cc; margin-top: 6px; }
-  input { width: 100%; font: 700 16px/1 var(--font); padding: 10px; border-radius: 10px; border: 2px solid #3a4d73; background: #10192e; color: #fff; }
+
+  #msg { color: #ffb0a5; font-weight: 700; min-height: 1.2em; margin-top: 10px; }
+  label { display: block; font: 700 13px/1.3 var(--font); color: #9fb0cc; margin-top: 10px; }
+  input { width: 100%; font: 700 17px/1 var(--font); padding: 12px; border-radius: 12px; border: 2px solid #3a4d73; background: #10192e; color: #fff; margin-top: 4px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Shelf Life · Director</h1>
-  <div id="state">…</div>
-  <div id="pending"><b id="pWhat"></b><span id="pWhy"></span>
-    <div class="grid"><button class="yes" data-d="approve">Approve</button><button class="no" data-d="reject">Reject</button></div></div>
-  <div id="msg"></div>
+  <h1>Shelf Life · Director <small id="conn"></small></h1>
 
-  <h2>Guided tour of the shop</h2>
-  <div class="grid">
-    <button id="tourBack">Back</button>
-    <button id="tourNext">Next stop</button>
-    <button id="tourEnd" style="grid-column: 1 / -1">End the tour</button>
+  <section id="now">
+    <div class="where"><b id="nowDay">No week yet</b><span id="nowClock"></span></div>
+    <div id="nowWhat">…</div>
+    <div id="nowMeta"></div>
+  </section>
+
+  <div id="pending">
+    <div class="ask">The agent asks the owner</div>
+    <b id="pWhat"></b><span class="why" id="pWhy"></span>
+    <div class="grid"><button class="yes" data-d="approve">Approve</button><button class="no" data-d="reject">Reject</button></div>
   </div>
 
-  <h2>The evening</h2>
-  <div class="grid">
-    <button class="big" id="continue">Next evening</button>
+  <button id="next"><b id="nextLabel">…</b><small id="nextHint"></small></button>
+  <div id="msg"></div>
+
+  <div class="grid three" style="margin-top: 8px">
     <button id="pause">Pause</button>
-    <button id="skip">Close shop now</button>
-    <button id="fast">Fast forward</button>
-    <button id="reveal">Reveal the page</button>
+    <button id="fast">Fast</button>
+    <button id="reveal">Reveal<small>food bank page</small></button>
+  </div>
+
+  <h2>Guided tour</h2>
+  <div class="grid three">
+    <button id="tourBack">Back</button>
+    <button id="tourNext">Start</button>
+    <button id="tourEnd">End</button>
   </div>
 
   <h2>Friday</h2>
   <div class="grid">
-    <select id="injection"><option value="">No injection</option></select>
     <button id="approval">Owner approval</button>
-    <button class="warn" id="replay" style="grid-column: 1 / -1">Play this evening again (with approval)</button>
+    <select id="injection"><option value="">No injection</option></select>
+    <button class="warn wide" id="replay">Play this evening again<small>from 20:00, with owner approval</small></button>
   </div>
 
   <h2>The week</h2>
   <div class="grid">
     <select id="mode"><option value="llm">Language model</option><option value="rule">Fixed rule</option></select>
-    <button id="start">Start week</button>
+    <button id="start">New week</button>
     <button id="board">Week summary</button>
     <button class="warn" id="reset">Reset</button>
   </div>
 
   <h2>Settings</h2>
+  <div class="grid">
+    <button class="wide" id="holds">Stop before and after each check-in</button>
+  </div>
   <label>Shop open, seconds per hour<input id="open" type="number" min="5" max="300"></label>
   <label>Pause between the agent's steps, seconds<input id="pace" type="number" min="0" max="10" step="0.1"></label>
   <label>Households in town (phones plus simulated)<input id="town" type="number" min="1" max="200"></label>
@@ -91,8 +131,8 @@ function askKey(text) {
 function forgetKey() { try { localStorage.removeItem("shelflife-key"); } catch (e) {} }
 const $ = id => document.getElementById(id);
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-DAYS.forEach((d, i) => $("injection").add(new Option("Injection on " + d, i)));
-let S = null;
+DAYS.forEach((d, i) => $("injection").add(new Option("Injection on " + d.slice(0, 3), i)));
+let S = null, nextAction = null;
 const TOUR_STOPS = 13;  // the length of TOUR in beamer.html
 
 async function admin(action, body = {}) {
@@ -101,20 +141,50 @@ async function admin(action, body = {}) {
   $("msg").textContent = r.ok ? "" : (j.detail || "error");
   if (r.ok) render(j);
 }
+
+// What the evening is doing now, and what the big button does next
+function situation(s) {
+  const W = s.waiting;
+  if (s.pending) return { now: "The agent waits for your decision.", label: "Decide above first", disabled: true };
+  if (W && W.kind === "before") return { now: `Waiting before the ${s.clock} check-in.`, label: W.label, hint: "The agent wakes up, looks around and acts.", go: "continue" };
+  if (W && W.kind === "after") return { now: "The check-in is done. The shop is still closed.", label: W.label, hint: "Students can shop again for one hour.", go: "continue" };
+  if (W && W.kind === "night") return { now: "Closed for the night. The summary is on the projector.", label: W.label,
+    hint: W.label.startsWith("Show") ? "The result of the whole week appears." : "The next morning's delivery arrives.", go: "continue" };
+  switch (s.phase) {
+    case "lobby": return { now: `Waiting to start. ${s.players} phones have joined.`, label: "Start the week", hint: "Every phone that has joined becomes a flat.", go: "start" };
+    case "morning": return { now: "The morning delivery arrives.", label: "Morning delivery …", disabled: true };
+    case "checkin": return { now: `The agent is checking in (${s.clock}).`, label: "The agent is working …", hint: "Wait until it is done for now.", disabled: true };
+    case "open": return { now: `The shop is open, ${Math.ceil(s.time_left)} s left.`, label: "Close the shop now", hint: "Ends this hour early.", go: "skip", soft: true };
+    case "week_over": return { now: "The week is over.", label: "The week is over", hint: "Start a new week below.", disabled: true };
+  }
+  return { now: s.phase, label: "…", disabled: true };
+}
+
 function render(s) {
   S = s;
-  const phase = { lobby: "waiting to start", morning: "morning delivery", checkin: "agent check-in", open: "shop open", night: "closed, waiting for the next evening", week_over: "week over" }[s.phase] || s.phase;
-  $("state").innerHTML = `<b>${s.day_name || "No week yet"}</b> · ${phase}${s.paused ? " · paused" : ""}<br>${s.players} phones · ${s.mode === "llm" ? "language model" : "fixed rule"}${s.has_key ? "" : " (no model key)"}`;
+  const t = situation(s);
+  $("nowDay").textContent = s.day_name || "No week yet";
+  $("nowClock").textContent = s.day_name ? s.clock : "";
+  $("nowWhat").textContent = (s.paused ? "Paused. " : "") + t.now;
+  $("nowMeta").textContent = `${s.players} phones · ${s.mode === "llm" ? "language model" : "fixed rule"}${s.has_key ? "" : " (no model key)"}${s.holds ? "" : " · runs without stops"}`;
+  $("nextLabel").textContent = t.label;
+  $("nextHint").textContent = t.hint || "";
+  $("next").disabled = !!t.disabled;
+  $("next").classList.toggle("go", !!t.go && !t.soft);
+  $("next").classList.toggle("soft", !!t.soft);
+  nextAction = t.go || null;
+
   $("pause").classList.toggle("on", s.paused);
+  $("pause").textContent = s.paused ? "Resume" : "Pause";
   $("fast").classList.toggle("on", s.fast);
   $("approval").classList.toggle("on", s.approval);
   $("reveal").classList.toggle("on", !!s.control.reveal);
   $("board").classList.toggle("on", s.control.overlay === "week");
+  $("holds").classList.toggle("on", s.holds);
+  $("holds").innerHTML = `Stop before and after each check-in<small>${s.holds ? "on: the big button moves the evening on" : "off: the evening runs by itself"}</small>`;
   const stop = Number.isInteger(s.control.tour) ? s.control.tour : -1;
-  $("tourNext").textContent = stop < 0 ? "Start the tour" : stop + 1 < TOUR_STOPS ? `Next stop (${stop + 2} of ${TOUR_STOPS})` : "Finish";
+  $("tourNext").textContent = stop < 0 ? "Start" : stop + 1 < TOUR_STOPS ? `Next (${stop + 2}/${TOUR_STOPS})` : "Finish";
   $("tourBack").disabled = stop <= 0; $("tourEnd").disabled = stop < 0;
-  $("continue").disabled = s.phase !== "night";
-  $("skip").disabled = s.phase !== "open";
   $("replay").disabled = !s.can_replay;
   for (const [id, k] of [["open", "open_seconds"], ["pace", "step_pause"], ["town", "town"]]) if (document.activeElement !== $(id)) $(id).value = s[k];
   if (document.activeElement !== $("injection")) $("injection").value = s.injection_day === null ? "" : String(s.injection_day);
@@ -130,21 +200,25 @@ function tourGo(delta) {
   const next = (Number.isInteger(S.control.tour) ? S.control.tour : -1) + delta;
   admin("control", { tour: next >= 0 && next < TOUR_STOPS ? next : null });
 }
+$("next").onclick = () => {
+  if (nextAction === "continue") admin("continue");
+  else if (nextAction === "skip") admin("skip");
+  else if (nextAction === "start") admin("start_week", { mode: $("mode").value });
+};
 $("tourNext").onclick = () => tourGo(1);
 $("tourBack").onclick = () => tourGo(-1);
 $("tourEnd").onclick = () => admin("control", { tour: null });
-$("continue").onclick = () => admin("continue");
 $("pause").onclick = () => admin("pause", { on: !S.paused });
-$("skip").onclick = () => admin("skip");
 $("fast").onclick = () => admin("fast", { on: !S.fast });
 $("reveal").onclick = () => admin("control", { reveal: !S.control.reveal });
 $("approval").onclick = () => admin("approval", { on: !S.approval });
 $("injection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
-$("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval?") && admin("replay");
+$("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval? Purchases of this evening are undone.") && admin("replay");
 $("mode").onchange = e => admin("settings", { mode: e.target.value });
-$("start").onclick = () => confirm("Start a new week?") && admin("start_week", { mode: $("mode").value });
+$("start").onclick = () => confirm("Start a new week? The current one is lost.") && admin("start_week", { mode: $("mode").value });
 $("board").onclick = () => admin("control", { overlay: S.control.overlay === "week" ? null : "week" });
 $("reset").onclick = () => confirm("Reset the week? Phones stay joined.") && admin("reset");
+$("holds").onclick = () => admin("settings", { holds: !S.holds });
 $("open").onchange = e => admin("settings", { open_seconds: +e.target.value });
 $("pace").onchange = e => admin("settings", { step_pause: +e.target.value });
 $("town").onchange = e => admin("settings", { town: +e.target.value });
@@ -154,14 +228,14 @@ async function poll() {
   try {
     const r = await fetch("/api/admin/status", { headers: { "X-Admin-Key": KEY }, cache: "no-store" });
     if (r.status === 403) {
-      $("state").textContent = "The director key is missing or wrong.";
+      $("nowWhat").textContent = "The director key is missing or wrong.";
       if (KEY) forgetKey();
       askKey(KEY ? "The director key is wrong. Enter it again:" : "Director key");
       return;
     }
-    if (r.ok) render(await r.json());
-  } catch (e) {}
-  setTimeout(poll, 1000);
+    if (r.ok) { render(await r.json()); $("conn").textContent = ""; }
+  } catch (e) { $("conn").textContent = "no connection"; }
+  setTimeout(poll, 700);
 }
 poll();
 </script>
