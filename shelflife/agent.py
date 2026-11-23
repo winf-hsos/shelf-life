@@ -38,7 +38,8 @@ Dates: the date on a pack is the last day it may be sold. Example: on Monday at 
 can still be sold all day Tuesday and Wednesday, so it stays on the shelf; only goods dated Monday cannot be sold again.
 Every action needs a reason ("why"): one short, plain sentence that students in a lecture hall can read on a projector.
 Finish every check-in with done_for_now.
-You do not remember earlier evenings, except the note you leave yourself with note_for_tomorrow."""
+You do not remember earlier evenings, except the note you leave yourself with note_for_tomorrow;
+the figures of earlier evenings are in the sales report."""
 
 
 def _tool(name: str, description: str, props: dict | None = None) -> dict:
@@ -54,7 +55,8 @@ PRODUCT = {"type": "string", "description": "Product name as shown on the shelf,
 TOOLS = [
     _tool("look_at_shelf", "See everything on the shelf: products, quantities, date labels and prices."),
     _tool("read_policy", "Read the shop's house rules."),
-    _tool("sales_report", "What sold since your last check-in, and what customers wanted but could not find."),
+    _tool("sales_report", "What sold since your last check-in, and what customers wanted but could not find; "
+          "then, product by product, every earlier evening of this week."),
     _tool("mark_down", "Change the price of the oldest packs of a product (those with the earliest date).",
           {"product": PRODUCT, "percent": {"type": "integer", "enum": list(MARKDOWNS),
                                              "description": "Percent off the full price, in steps of 5; 0 is full price."}, "why": WHY}),
@@ -77,6 +79,12 @@ TOOLS = [
           {"text": {"type": "string"}}),
     _tool("done_for_now", "End this check-in.", {"summary": {"type": "string", "description": "One sentence on what you did."}}),
 ]
+
+
+def request_body(model: str, effort: str, convo: list) -> dict:
+    """The arguments of one call to the Responses API."""
+    return {"model": model, "instructions": INSTRUCTIONS, "tools": TOOLS, "tool_choice": "required",
+            "reasoning": {"effort": effort}, "input": convo}
 
 
 def check_model(model: str) -> str | None:
@@ -106,9 +114,14 @@ class LLMManager:
         self.tokens = 0
         self.seconds = 0.0
         self.down = False  # the last check-in ended because the model did not answer
+        self.last_input_tokens = 0  # tokens the model read with the latest request
 
     def new_day(self) -> None:
         self.convo = []
+
+    def request(self) -> dict:
+        """Everything the model receives with the next request; the projector shows exactly this."""
+        return request_body(self.model, self.effort, list(self.convo))
 
     def checkin(self, shop: Shop, on_step=None) -> list[dict]:
         self.convo.append({"role": "user", "content": shop.wake()})
@@ -119,8 +132,7 @@ class LLMManager:
         t0 = time.time()
         for turn in range(1, 9):
             try:
-                r = self.client.responses.create(model=self.model, instructions=INSTRUCTIONS, input=self.convo,
-                                                 tools=TOOLS, tool_choice="required", reasoning={"effort": self.effort})
+                r = self.client.responses.create(**self.request())
             except Exception as e:  # timeout, network, rate limit, outage
                 failures += 1
                 # one more try, unless the model was already silent at the last check-in
@@ -142,6 +154,7 @@ class LLMManager:
             failures = 0
             self.down = False
             self.tokens += r.usage.total_tokens if r.usage else 0
+            self.last_input_tokens = r.usage.input_tokens if r.usage else 0
             for o in r.output:
                 if o.type != "function_call":
                     continue

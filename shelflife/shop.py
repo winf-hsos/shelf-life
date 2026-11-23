@@ -30,7 +30,6 @@ FOOD_BANK_KG = 15.0
 MARKDOWNS = tuple(range(0, 95, 5))  # 0, 5, 10, ... 90 percent
 APPROVAL_BIN = 10  # binning more than this at once needs the owner's approval, when approval is on
 APPROVAL_PERCENT = 50  # a markdown above this needs approval
-MIN_ORDER = 0.5  # the supplier delivers at least this share of the standing order
 
 
 @dataclass(frozen=True)
@@ -245,7 +244,8 @@ class Shop:
         self.days.append({"day": self.day, "delivered_kg": delivered_kg, "revenue": 0.0, "sold": 0, "sold_kg": 0.0, "discounted": 0,
                           "food_bank_kg": 0.0, "cashier_kg": 0.0, "binned_kg": 0.0, "auto_binned_kg": 0.0,
                           "asked_none": 0, "kept": 0, "cost": 0.0, "waste_cost": 0.0,
-                          "ordered": self.day in self.orders})
+                          "ordered": self.day in self.orders,
+                          "by": {"delivered": self.delivered, "sold": self.sold_tonight, "missed": self.missed_tonight}})
         self.event("delivery", items=dict(self.delivered), ordered=self.day in self.orders)
 
     def standing(self, day: int) -> dict[str, int]:
@@ -409,8 +409,8 @@ class Shop:
                      "bread rolls are baked then and sushi is made then, so both sell all day tomorrow; minced beef keeps 2 days, "
                      "strawberries 2, salad 3, yoghurt 4, milk 6, eggs 14, pasta a year."
                      f"\nSold tonight: {sales}."
-                     f"\nWithout an order the supplier brings the standing order: {standing}. "
-                     "It delivers at least half of the standing order of each product."
+                     f"\nWithout an order the supplier brings the standing order: {standing}."
+                     "\nsales_report shows tonight and every earlier evening of this week, product by product."
                      "\nOrder what you expect to sell tomorrow, counting what is still on the shelf. Too much ends in the bin; "
                      "too little means lost sales and students without dinner. Call order with the quantities you want delivered; "
                      "products you leave out arrive as in the standing order.")
@@ -461,6 +461,30 @@ class Shop:
         return POLICY
 
     def t_sales_report(self) -> str:
+        return self.tonight_report() + self.week_report()
+
+    def week_report(self) -> str:
+        """The earlier evenings of this week, one line per product."""
+        earlier = self.days[:-1]
+        if not earlier:
+            return ""
+        binned: dict[tuple, int] = {}
+        for e in self.events:
+            if e["kind"] in ("bin", "auto_bin"):
+                k = (e["day"], e["product"])
+                binned[k] = binned.get(k, 0) + e["qty"]
+        rows = []
+        for p in PRODUCTS:
+            cells = []
+            for d in earlier:
+                by = d["by"]
+                cells.append(f"{day_name(d['day'])[:3]} {by['delivered'].get(p.key, 0)}/{by['sold'].get(p.key, 0)}"
+                             f"/{by['missed'].get(p.key, 0)}/{binned.get((d['day'], p.key), 0)}")
+            rows.append(f"- {p.name}: " + ", ".join(cells))
+        return ("\n\nEarlier evenings this week, per product: delivered / sold / customers who found none / binned\n"
+                + "\n".join(rows))
+
+    def tonight_report(self) -> str:
         if not self.sales_since and not self.asked_none and not self.closing:
             return "Nothing sold since your last check-in." if self.checkin else "The shop has just opened; nothing sold yet tonight."
         rows = []
@@ -598,8 +622,7 @@ class Shop:
             return "No delivery to order: the owner plans the delivery after the Sunday break."
         nxt = next_open(self.day)
         order = self.orders.setdefault(nxt, {})
-        changed, capped, raised, unknown = [], [], [], []
-        floor = {k: math.ceil(q * MIN_ORDER) for k, q in self.standing(nxt).items()}
+        changed, capped, unknown = [], [], []
         for it in items or []:
             p = self.resolve(str(it.get("product", "")))
             if not p:
@@ -610,9 +633,6 @@ class Shop:
             if q > limit:
                 capped.append(f"{p.name.lower()} (at most {limit})")
                 q = limit
-            if q < floor[p.key]:
-                raised.append(f"{p.name.lower()} (at least {floor[p.key]})")
-                q = floor[p.key]
             order[p.key] = q
             changed.append(p.key)
         if not order:
@@ -624,8 +644,6 @@ class Shop:
         text = f"Order for {day_name(nxt)} morning confirmed. The delivery will be:\n" + "\n".join(lines)
         if capped:
             text += "\nThe supplier capped: " + ", ".join(capped) + "."
-        if raised:
-            text += "\nRaised to the supplier's minimum, half the standing order: " + ", ".join(raised) + "."
         if unknown:
             text += "\nNot in the catalogue: " + ", ".join(unknown) + "."
         return text

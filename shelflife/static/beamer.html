@@ -319,6 +319,35 @@
   #toolInfo .nav { display: flex; gap: .8vw; margin-top: 1.8vh; }
   #toolInfo .nav button { font: 900 2.2vh/1 var(--display); padding: 1vh 1.4vw; border-radius: 10px; border: 2px solid #2b1d10; background: var(--lamp); color: #2a1a05; cursor: pointer; }
   #toolInfo .nav button.x { margin-left: auto; background: #e7dcc4; }
+  /* ---------- the model's context: the request to the API, as JSON ---------- */
+  #tools button#ctxBtn { font: 800 13px/1 ui-monospace, Consolas, monospace; padding: 5px 8px; border-radius: 7px; cursor: pointer;
+                         background: transparent; color: var(--lamp); border: 1px dashed var(--lamp); }
+  #ctx { position: fixed; inset: 0; z-index: 186; display: none; align-items: center; justify-content: center; background: rgba(4, 8, 16, .72); }
+  #ctx.on { display: flex; }
+  #ctx .win { width: min(80vw, 1500px); height: 88vh; display: flex; flex-direction: column; background: #0d1526; color: #d7e1f2;
+              border: 2px solid #2a3d63; border-radius: 16px; box-shadow: 0 14px 0 rgba(0,0,0,.4); overflow: hidden; }
+  #ctx header { display: flex; align-items: baseline; gap: 1.2vw; padding: 1.6vh 1.6vw 0; }
+  #ctx header b { font: 900 3vh/1 var(--display); color: var(--lamp); }
+  #cxMeta { font: 700 1.6vh/1.2 var(--font); color: #9fb0cc; }
+  #cxClose { margin-left: auto; font: 900 1.9vh/1 var(--display); padding: .8vh 1.2vw; border-radius: 10px; border: 2px solid #2a3d63; background: #1b2b4a; color: #d7e1f2; cursor: pointer; }
+  #ctx .lead { margin: .8vh 1.6vw 1.2vh; font: 600 1.8vh/1.4 var(--font); color: #b7c4da; max-width: 70vw; }
+  #cxBody { flex: 1; overflow: auto; margin: 0 .8vw 1.2vh; padding: 1.2vh 1vw; background: #070d1a; border-radius: 10px;
+            font: 500 1.7vh/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+  #cxBody .jk { color: #8fc7ff; font-style: normal; }
+  #cxBody .js { color: #ffd98a; font-style: normal; }
+  #cxBody .jn, #cxBody .jb { color: #9be59b; font-style: normal; }
+  #cxBody details { display: block; }
+  #cxBody details[open] > summary .tail { display: none; }
+  #cxBody summary { display: block; cursor: pointer; list-style: none; }
+  #cxBody summary::-webkit-details-marker { display: none; }
+  #cxBody summary::before { content: "▸ "; color: var(--lamp); }
+  #cxBody details[open] > summary::before { content: "▾ "; }
+  #cxBody summary em { font: italic 600 1.5vh/1 var(--font); color: #7f8fa8; margin-left: .6vw; }
+  #cxBody .item { display: block; border-left: 4px solid #2a3d63; padding-left: .8vw; margin: .5vh 0 .9vh 1.2vw; position: relative; }
+  #cxBody .item.user { border-color: #4b8fe0; }
+  #cxBody .item.function_call { border-color: var(--lamp); }
+  #cxBody .item.function_call_output { border-color: var(--ok); }
+  #cxBody .cxtag { display: block; font: 800 1.35vh/1 var(--font); text-transform: uppercase; letter-spacing: .06em; color: #7f8fa8; margin-bottom: .3vh; }
   #steps { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; }
   .step { background: #18294a; border: 2px solid #26406b; border-radius: 12px; padding: 7px 11px; cursor: pointer; animation: stepin .35s ease-out; }
   .step.act { border-color: #4b8fe0; }
@@ -513,6 +542,13 @@
   <pre id="tiRes"></pre>
   <div class="nav"><button id="tiPrev">‹ previous</button><button id="tiNext">next ›</button><button class="x" id="tiClose">close</button></div>
 </div></div>
+<div id="ctx"><div class="win">
+  <header><b>What the model receives</b><span id="cxMeta"></span><button id="cxClose">close</button></header>
+  <p class="lead">One request to the OpenAI Responses API, exactly as the shop sends it. Every tool call adds two items to
+    <code>input</code>, the call and the shop's answer, and the whole request goes out again for the next step.
+    The next evening starts with an empty <code>input</code>; only the note for tomorrow and the sales report reach back.</p>
+  <div id="cxBody"></div>
+</div></div>
 <div id="pauseBanner">⏸ Paused<small>the clock stops and the shop waits</small></div>
 <div id="zoom">
   <button class="zbtn" id="zPrev" title="previous step (←)">‹</button>
@@ -540,7 +576,7 @@
   <button id="dReset" class="warn">Reset</button>
   <button id="dHide">Hide bar (H)</button>
   <span class="msg" id="dMsg"></span>
-  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · D pin bar · H hide bar</span>
+  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · C context · D pin bar · H hide bar</span>
 </div>
 
 <script>
@@ -865,12 +901,87 @@ $("tiPrev").onclick = () => openTool(toolAt - 1);
 $("tiNext").onclick = () => openTool(toolAt + 1);
 $("tiClose").onclick = closeTool;
 $("toolInfo").onclick = e => { if (e.target.id === "toolInfo") closeTool(); };
-$("tools").onclick = e => { const s = e.target.closest("span[data-name]"); if (s) openTool([...$("tools").children].indexOf(s)); };
+$("tools").onclick = e => { if (e.target.id === "ctxBtn") return toggleCtx(); const s = e.target.closest("span[data-name]"); if (s) openTool([...$("tools").children].indexOf(s)); };
 addEventListener("keydown", e => {
   if (toolAt < 0) return;
   if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); openTool(toolAt - 1); }
   else if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); openTool(toolAt + 1); }
   else if (e.key === "Escape") { closeTool(); e.stopImmediatePropagation(); }
+}, true);
+/* ---------- the model's context: what the API receives, as JSON (C, or the context button) ---------- */
+const CX_TAGS = { user: "the shop wakes the agent", function_call: "the model calls a tool", function_call_output: "the shop answers" };
+function jh(v, ind = "") {
+  const pad = ind + "  ";
+  if (v === null || typeof v === "boolean") return `<i class="jb">${v}</i>`;
+  if (typeof v === "number") return `<i class="jn">${v}</i>`;
+  if (typeof v === "string") return `<i class="js">${esc(JSON.stringify(v))}</i>`;
+  if (Array.isArray(v) && v.length && v.every(x => typeof x === "number")) return "[" + v.map(x => jh(x)).join(", ") + "]";
+  if (Array.isArray(v)) return v.length ? "[\n" + v.map(x => pad + jh(x, pad)).join(",\n") + "\n" + ind + "]" : "[]";
+  const ks = Object.keys(v);
+  return ks.length ? "{\n" + ks.map(k => `${pad}<i class="jk">${esc(JSON.stringify(k))}</i>: ${jh(v[k], pad)}`).join(",\n") + "\n" + ind + "}" : "{}";
+}
+// a fold is one line while closed (head, then the trailing comma) and the full JSON when open
+function fold(id, head, note, open, body, tail) {
+  return `<details data-k="${id}"><summary>${head}<span class="tail"> … ${body.close}${tail}</span><em>${note}</em></summary>`
+    + `${open}${body.inner}${body.close}${tail}</details>`;
+}
+function ctxHtml(req) {
+  const key = k => `<i class="jk">"${k}"</i>: `;
+  const ins = req.instructions;
+  const toolLines = req.tools.map((t, i) => {
+    const inner = jh(t, "    ");  // "{\n ... }"
+    return fold("tool" + i, `    { <i class="jk">"name"</i>: <i class="js">"${esc(t.name)}"</i>`, "", "",
+      { inner: inner.slice(2, inner.lastIndexOf("}")), close: "}" }, i < req.tools.length - 1 ? "," : "");
+  }).join("");
+  const items = req.input.map((it, i) => {
+    const type = it.role || it.type;
+    return `<span class="item ${type}"><span class="cxtag">${i + 1} · ${CX_TAGS[type] || type}</span>    ${jh(it, "    ")}${i < req.input.length - 1 ? "," : ""}</span>`;
+  }).join("");
+  return "{\n"
+    + "  " + key("model") + jh(req.model) + ",\n"
+    + fold("ins", "  " + key("instructions") + `<i class="js">"${esc(ins.slice(0, 60))}</i>`, `${ins.length.toLocaleString("en")} characters`,
+           "", { inner: `<i class="js">${esc(JSON.stringify(ins).slice(61, -1))}</i>`, close: `<i class="js">"</i>` }, ",")
+    + fold("tools", "  " + key("tools") + "[", `${req.tools.length} tools: name, description and parameters of each`,
+           "", { inner: toolLines, close: "  ]" }, ",")
+    + "  " + key("tool_choice") + jh(req.tool_choice) + ",\n"
+    + "  " + key("reasoning") + jh(req.reasoning, "  ") + ",\n"
+    + "  " + key("input") + (req.input.length ? "[\n" + items + "  ]" : "[]") + "\n}";
+}
+let ctxOpen = false, ctxSig = "", ctxTimer = null;
+async function ctxLoad() {
+  clearTimeout(ctxTimer);
+  if (!ctxOpen) return;
+  try {
+    const r = await fetch("/api/admin/context", { headers: { "X-Admin-Key": KEY }, cache: "no-store" });
+    const j = await r.json();
+    const req = j.request, n = req.input.length;
+    const sig = `${req.model}|${n}|${j.mode}`;
+    if (sig !== ctxSig) {
+      const body = $("cxBody");
+      const atEnd = !ctxSig || body.scrollTop + body.clientHeight > body.scrollHeight - 40;
+      const open = new Set([...body.querySelectorAll("details[open]")].map(d => d.dataset.k));
+      body.innerHTML = ctxHtml(req);
+      body.querySelectorAll("details").forEach(d => { if (open.has(d.dataset.k)) d.open = true; });
+      if (atEnd) body.scrollTop = body.scrollHeight;
+      ctxSig = sig;
+    }
+    const chars = JSON.stringify(req).length;
+    $("cxMeta").textContent = j.mode !== "llm"
+      ? `${req.model} · the fixed rule plays this week, so this is what the model would receive`
+      : `${req.model} · ${n} items in input · ${(chars / 1000).toFixed(1)}k characters`
+        + (j.input_tokens ? ` · the last request was ${j.input_tokens.toLocaleString("en")} tokens` : " · no request yet tonight");
+  } catch (e) { /* the next round tries again */ }
+  ctxTimer = setTimeout(ctxLoad, 1500);
+}
+function toggleCtx(on = !ctxOpen) {
+  ctxOpen = on;
+  $("ctx").classList.toggle("on", on);
+  if (on) { ctxSig = ""; ctxLoad(); }
+}
+$("cxClose").onclick = () => toggleCtx(false);
+$("ctx").onclick = e => { if (e.target.id === "ctx") toggleCtx(false); };
+addEventListener("keydown", e => {
+  if (ctxOpen && e.key === "Escape") { toggleCtx(false); e.stopImmediatePropagation(); }
 }, true);
 function closeZoom() { $("zoom").classList.remove("on"); zoomAt = -1; }
 $("zPrev").onclick = () => openZoom(zoomAt - 1);
@@ -915,7 +1026,8 @@ function render(v) {
                               v.paused && !["lobby", "week_over"].includes(phase) ? "paused" : "", barHidden ? "nobar" : ""].join(" ");
   if (!v.busy && phase === "checkin") document.body.classList.add("checkin");
   $("goalText").textContent = v.goal;
-  if (!$("tools").children.length) $("tools").innerHTML = v.tools.map(t => `<span data-name="${t.name}" title="${esc(t.description)}">${t.name}</span>`).join("");
+  if (!$("tools").children.length) $("tools").innerHTML = v.tools.map(t => `<span data-name="${t.name}" title="${esc(t.description)}">${t.name}</span>`).join("")
+    + (KEY ? `<button id="ctxBtn" title="what the model receives (C)">{ } context</button>` : "");
 
   // week strip
   $("week").innerHTML = v.days.map((d, i) => `<div class="day ${d.state}"><b>${d.name.slice(0, 3)}</b><span>${d.note || "&nbsp;"}</span></div>`).join("");
@@ -1222,6 +1334,7 @@ if (KEY) {
     if (k === "r") admin("control", { reveal: !V.control.reveal });
     if (k === "d") $("director").classList.toggle("pin");
     if (k === "h") toggleBar();
+    if (k === "c") toggleCtx();
     if (k === "l") admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
     if (k === "t") tourGo(e.shiftKey ? -1 : 1);
     if (e.key === "Escape" && Number.isInteger(V.control.tour)) admin("control", { tour: null });

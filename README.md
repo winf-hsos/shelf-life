@@ -78,7 +78,13 @@ this off.
 The agent knows the purchase price: the shop pays half the shelf price for everything that leaves the
 shelf, sold, given away or binned. At 22:00 `look_at_shelf` marks for every pack whether it can stay.
 Markdowns go in steps of 5 %, from 5 to 90 % off; between two tool calls the agent waits 3 s by
-default, so the room can follow.
+default, so the room can follow. The agent orders whatever it wants for the next morning, up to twice
+the largest standing order of a product; there is no minimum.
+
+One evening is one conversation with the model. The next evening starts with an empty input, so the
+request stays short and fast; what reaches back is the agent's note for tomorrow and `sales_report`,
+which lists every earlier evening of the week product by product (delivered, sold, customers who found
+none, binned).
 
 ## Director
 
@@ -94,8 +100,12 @@ the projector's bar stays visible.
 breakfasts, spoiled items and money left, across the whole projector; it closes when the evening goes on.
 
 Keyboard on the projector page with the key: Space goes on (or closes the shop early while it is open),
-L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, D pin the bar,
+L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, C context, D pin the bar,
 H hide the bar completely and show it again (the browser remembers the choice).
+
+*Context* (C, or the dashed button after the agent's tools) shows the request the model receives, as JSON
+for the Responses API: model, instructions, the eleven tools, and the input of this evening, which grows by
+two items with every tool call. It refreshes while it is open; Esc closes it.
 
 A pause shows a banner and a yellow frame on the projector and a notice on every phone; the clock and
 the shop stand still until it ends. A click on a tool call in the agent's panel opens it in large print

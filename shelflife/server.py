@@ -30,7 +30,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from .agent import MODEL, MODELS, TOOLS, LLMManager, RuleManager, check_model
+from .agent import MODEL, MODELS, TOOLS, LLMManager, RuleManager, check_model, request_body
 from .bots import STYLES, shop_once
 from .shop import (BUDGET, BY_KEY, CASHIER_LIMIT, CHECKINS, DAY_NOTE, DAYS, FOOD_BANK_KG, GOAL, INJECTIONS, POLICY,
                    PRODUCTS, SHOP_DAYS, Household, Shop, day_name, fridge_expiry, next_open)
@@ -739,6 +739,17 @@ def status() -> dict:
 def admin_status(x_admin_key: str | None = Header(None)):
     need_admin(x_admin_key)
     return status()
+
+
+@app.get("/api/admin/context")
+def admin_context(x_admin_key: str | None = Header(None)):
+    """What the language model receives with its next request this evening, as the API gets it."""
+    need_admin(x_admin_key)
+    m = live.manager
+    if isinstance(m, LLMManager):
+        return {"request": m.request(), "input_tokens": m.last_input_tokens, "tokens": m.tokens, "mode": "llm"}
+    return {"request": request_body(live.model, live.effort, []), "input_tokens": 0, "tokens": 0,
+            "mode": "rule" if m else live.mode}
 
 
 @app.post("/api/admin/{action}")
