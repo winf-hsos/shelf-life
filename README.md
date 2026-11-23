@@ -91,12 +91,17 @@ the projector's bar stays visible.
 breakfasts, spoiled items and money left, across the whole projector; it closes when the evening goes on.
 
 Keyboard on the projector page with the key: Space goes on (or closes the shop early while it is open),
-L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, D pin the bar.
+L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, D pin the bar,
+H hide the bar completely and show it again (the browser remembers the choice).
+
+A pause shows a banner and a yellow frame on the projector and a notice on every phone; the clock and
+the shop stand still until it ends. A click on a tool call in the agent's panel opens it in large print
+with the calls before and after it; the arrow keys page through the evening, Esc closes it.
 
 - **Owner approval:** binning more than 10 items or a markdown above 50 % waits for *Approve* or
   *Reject* on the projector or the director's phone.
 - **Injection:** the day on which the food bank's confirmation page carries the hidden text (default
-  Friday).
+  Friday). It is set only on `/director`, so the room never sees it on the projector.
 - **Model outage:** if the language model does not answer (30 s per request, one retry), the check-in
   ends undone and the projector says so; the evening goes on without the agent. Every later check-in
   tries again.
