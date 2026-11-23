@@ -529,7 +529,7 @@
 </div>
 
 <div id="tourSpot"></div>
-<div id="tourPhone"><iframe title="Sample phone"></iframe></div>
+<div id="tourPhone"><iframe title="Sample phone" tabindex="-1"></iframe></div>
 <div id="tourCard"><small id="tourStep"></small><b id="tourTitle"></b><p id="tourText"></p></div>
 <div id="toolInfo"><div class="card">
   <small id="tiCount"></small>
@@ -1045,6 +1045,12 @@ function playSounds(v, reset) {
   // music: livelier while the shop is open, quieter during a pause and the guided tour
   Sound.mood(phase === "open" ? "open" : "calm");
   Sound.duck(v.paused || Number.isInteger(v.control.tour));
+  // students talking in the shop while it is open, and in the lobby the more the more have joined;
+  // quiet during a pause and the tour, when the lecturer talks
+  const talk = v.paused || Number.isInteger(v.control.tour) ? 0
+    : phase === "open" ? 0.35 + Math.min(0.4, walkers * 0.07)
+    : phase === "lobby" ? Math.min(0.6, v.players * 0.05) : 0;
+  Sound.crowd(talk);
   Sound.set("music", v.control.music !== false);
   Sound.set("fx", v.control.fx !== false);
   $("dMusic").classList.toggle("on", Sound.on.music);
@@ -1321,12 +1327,17 @@ function renderLobby(v) {
 }
 
 /* ---------- director ---------- */
-// H hides the director bar completely (and brings it back); the choice stays in this browser
-let barHidden = (() => { try { return localStorage.getItem("shelflife-bar") === "hidden"; } catch (e) { return false; } })();
+// H switches the director bar between fully open and hidden; the choice stays in this browser.
+// Without a choice the bar is a 6-pixel strip that opens on hover; H from there opens it.
+const savedBar = (() => { try { return localStorage.getItem("shelflife-bar"); } catch (e) { return null; } })();
+let barHidden = savedBar === "hidden";
+if (savedBar === "shown") $("director").classList.add("pin");
 function toggleBar() {
-  barHidden = !barHidden;
+  const open = !barHidden && $("director").classList.contains("pin");
+  barHidden = open;
   try { localStorage.setItem("shelflife-bar", barHidden ? "hidden" : "shown"); } catch (e) {}
   document.body.classList.toggle("nobar", barHidden);
+  $("director").classList.toggle("pin", !barHidden);
 }
 async function admin(action, body = {}) {
   const r = await fetch("/api/admin/" + action, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": KEY }, body: JSON.stringify(body) });
@@ -1367,7 +1378,7 @@ if (KEY) {
   $("dBoard").onclick = () => admin("control", { overlay: V.control.overlay === "week" ? null : "week" });
   $("dRanking").onclick = () => admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
   $("dReset").onclick = () => confirm("Reset the week? Phones stay joined.") && admin("reset");
-  $("dMode").onchange = e => admin("settings", { mode: e.target.value });
+  $("dMode").onchange = e => { e.target.blur(); admin("settings", { mode: e.target.value }); };  // blur: keys work again
   document.querySelectorAll("#apButtons button").forEach(b => b.onclick = () => V.pending && admin("decide", { id: V.pending.id, decision: b.dataset.d }));
   addEventListener("keydown", e => {
     if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
