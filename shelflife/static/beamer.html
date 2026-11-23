@@ -437,8 +437,29 @@
 </div>
 
 <script>
-const KEY = new URLSearchParams(location.hash.slice(1)).get("key");
+// The director key: from #key=… once, then remembered in this browser.
+const KEY = (() => {
+  const given = new URLSearchParams(location.hash.slice(1)).get("key");
+  if (given) {
+    try { localStorage.setItem("shelflife-key", given); } catch (e) {}
+    history.replaceState(null, "", location.pathname);
+    return given;
+  }
+  try { return localStorage.getItem("shelflife-key"); } catch (e) { return null; }
+})();
+function askKey(text) {
+  const k = (prompt(text) || "").trim();
+  if (!k) return;
+  try { localStorage.setItem("shelflife-key", k); } catch (e) {}
+  location.reload();
+}
+function forgetKey() { try { localStorage.removeItem("shelflife-key"); } catch (e) {} }
 if (KEY) document.body.classList.add("admin");
+// K enters the key on a projector that has none; a wrong key is forgotten
+if (!KEY) addEventListener("keydown", e => { if (e.key.toLowerCase() === "k") askKey("Director key"); });
+else fetch("/api/admin/status", { headers: { "X-Admin-Key": KEY }, cache: "no-store" })
+  .then(r => { if (r.status === 403) { forgetKey(); alert("The director key is wrong. Press K to enter it again."); location.reload(); } })
+  .catch(() => {});
 const ORDER = ["beef", "sushi", "eggs", "rolls", "pasta", "salad", "berries", "yoghurt", "milk"];
 const NAMES = {};
 const $ = id => document.getElementById(id);

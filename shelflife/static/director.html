@@ -72,7 +72,23 @@
   <label>Households in town (phones plus simulated)<input id="town" type="number" min="1" max="200"></label>
 </main>
 <script>
-const KEY = new URLSearchParams(location.hash.slice(1)).get("key");
+// The director key: from #key=… once, then remembered in this browser.
+const KEY = (() => {
+  const given = new URLSearchParams(location.hash.slice(1)).get("key");
+  if (given) {
+    try { localStorage.setItem("shelflife-key", given); } catch (e) {}
+    history.replaceState(null, "", location.pathname);
+    return given;
+  }
+  try { return localStorage.getItem("shelflife-key"); } catch (e) { return null; }
+})();
+function askKey(text) {
+  const k = (prompt(text) || "").trim();
+  if (!k) return;
+  try { localStorage.setItem("shelflife-key", k); } catch (e) {}
+  location.reload();
+}
+function forgetKey() { try { localStorage.removeItem("shelflife-key"); } catch (e) {} }
 const $ = id => document.getElementById(id);
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 DAYS.forEach((d, i) => $("injection").add(new Option("Injection on " + d, i)));
@@ -137,7 +153,12 @@ document.querySelectorAll("#pending button").forEach(b => b.onclick = () => S.pe
 async function poll() {
   try {
     const r = await fetch("/api/admin/status", { headers: { "X-Admin-Key": KEY }, cache: "no-store" });
-    if (r.status === 403) { $("state").textContent = "The director key is missing or wrong. Open /director#key=…"; return; }
+    if (r.status === 403) {
+      $("state").textContent = "The director key is missing or wrong.";
+      if (KEY) forgetKey();
+      askKey(KEY ? "The director key is wrong. Enter it again:" : "Director key");
+      return;
+    }
     if (r.ok) render(await r.json());
   } catch (e) {}
   setTimeout(poll, 1000);

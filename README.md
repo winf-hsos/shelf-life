@@ -72,6 +72,10 @@ After the lecture: `systemctl --user disable --now shelf-life`.
 
 ## Director
 
+The key is entered once per browser: open a page with `#key=…`, or press K on the projector page or answer the
+prompt on `/director`. The browser keeps it (localStorage) and drops it from the address bar; a wrong key is
+forgotten and asked for again.
+
 Keyboard on the projector page with the key: Space next evening or close the shop now, P pause, F fast
 forward, A owner approval, R reveal the food bank page, D pin the bar.
 
