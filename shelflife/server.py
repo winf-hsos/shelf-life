@@ -499,6 +499,7 @@ class Live:
                 **self.totals(shop),
                 "steps": [self.step_view(s) for s in shop.steps if s["day"] == shop.day],
                 "busy": self.busy, "thinking": self.busy and isinstance(self.manager, LLMManager) and time.time() - self.last_step_t > 0.9 and not self.paused,
+                "model_down": isinstance(self.manager, LLMManager) and self.manager.down,
                 "note": {"text": shop.note, "day": day_name(shop.note_day)} if shop.note else None,
                 "approval": self.approval_flag(shop),
                 "approval_from": shop.approval_from, "injection_day": shop.injection_day,

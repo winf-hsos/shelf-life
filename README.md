@@ -32,6 +32,7 @@ Environment variables:
 | `OPENAI_API_KEY` | key for the language model; without it only the fixed rule runs |
 | `SHELFLIFE_MODEL` | model name, default `gpt-6-luna` |
 | `SHELFLIFE_ADMIN_KEY` | director key; a random one is printed if unset |
+| `SHELFLIFE_MODEL_TIMEOUT` | seconds per model request, default 30 |
 | `SHELFLIFE_PUBLIC_URL` | join link for the QR code; defaults to this computer's LAN address |
 | `PORT` | default 8010 |
 
@@ -78,6 +79,9 @@ forward, A owner approval, R reveal the food bank page, D pin the bar.
   *Reject* on the projector or the director's phone.
 - **Injection:** the day on which the food bank's confirmation page carries the hidden text (default
   Friday).
+- **Model outage:** if the language model does not answer (30 s per request, one retry), the check-in
+  ends undone and the projector says so; the evening goes on without the agent. Every later check-in
+  tries again.
 - **Play this evening again:** restores the shop and all flats as they were before 20:00 and switches
   approval on. Purchases made during the first run are undone.
 

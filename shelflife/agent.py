@@ -15,6 +15,8 @@ from .shop import GOAL, PRODUCTS, Shop, next_open
 
 MODEL = os.environ.get("SHELFLIFE_MODEL", "gpt-6-luna")
 MAX_CALLS = 14
+TIMEOUT = float(os.environ.get("SHELFLIFE_MODEL_TIMEOUT", "30"))  # seconds per model request
+DOWN_TEXT = "No answer from the language model. No model, no agent: this check-in stays undone."
 
 INSTRUCTIONS = f"""You are the Night Shift Agent of a small corner shop: an AI agent that runs the shop in the evenings,
 Monday to Saturday, from 20:00 to 22:00. A cashier works the till; every other decision is yours.
@@ -70,12 +72,13 @@ class LLMManager:
     def __init__(self, client=None, model: str = MODEL, effort: str = "low"):
         from openai import OpenAI
 
-        self.client = client or OpenAI()
+        self.client = client or OpenAI(timeout=TIMEOUT, max_retries=0)
         self.model = model
         self.effort = effort
         self.convo: list = []
         self.tokens = 0
         self.seconds = 0.0
+        self.down = False  # the last check-in ended because the model did not answer
 
     def new_day(self) -> None:
         self.convo = []
@@ -85,15 +88,32 @@ class LLMManager:
         steps: list[dict] = []
         calls = 0
         done = False
+        failures = 0
         t0 = time.time()
         for turn in range(1, 9):
             try:
                 r = self.client.responses.create(model=self.model, instructions=INSTRUCTIONS, input=self.convo,
                                                  tools=TOOLS, tool_choice="required", reasoning={"effort": self.effort})
-            except Exception as e:  # network, rate limit
-                steps.append({"name": "error", "result": type(e).__name__, "turn": turn})
+            except Exception as e:  # timeout, network, rate limit, outage
+                failures += 1
+                # one more try, unless the model was already silent at the last check-in
+                if failures >= (1 if self.down else 2):
+                    self.down = True
+                    step = {"name": "model_down", "args": {}, "result": f"{DOWN_TEXT} ({type(e).__name__})", "turn": turn}
+                    steps.append(step)
+                    if on_step:
+                        on_step(step)
+                    shop.use_tool("done_for_now", {"summary": "The language model did not answer."})
+                    self.seconds += time.time() - t0
+                    return steps
+                step = {"name": "model_error", "args": {}, "result": f"No answer from the language model ({type(e).__name__}). Trying once more.", "turn": turn}
+                steps.append(step)
+                if on_step:
+                    on_step(step)
                 time.sleep(1.5)
                 continue
+            failures = 0
+            self.down = False
             self.tokens += r.usage.total_tokens if r.usage else 0
             for o in r.output:
                 if o.type != "function_call":

@@ -269,6 +269,8 @@
   #bubble::after { content: ""; position: absolute; left: -14px; bottom: 16px; border: 12px solid transparent; border-right-color: #fff; border-left: 0; }
   #bubble .label { display: block; font: 800 12px/1 var(--font); color: var(--agent); margin-bottom: 5px; }
   #bubble.why { font-style: italic; }
+  #bubble.down { background: #fff0ee; border-color: var(--due); font-weight: 700; }
+  #bubble.down .label { color: var(--due); }
   #bubble.wake { font-style: normal; font-weight: 600; font-size: 16px; background: #eef4ff; }
   .dots i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; background: var(--agent); animation: dot 1s infinite; }
   .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
@@ -599,10 +601,12 @@ function ticker(e) {
 }
 
 /* ---------- the agent's steps ---------- */
+const DOWN = "No model, no agent: nobody runs the shop until it answers again.";
 const ACTIONS = ["mark_down", "food_bank_form", "send_to_food_bank", "give_to_cashier", "bin", "order", "note_for_tomorrow"];
 function callText(s) {
   const a = Object.assign({}, s.args || {}); delete a.why;
   if (s.name === "wake") return "<b>wake-up message</b>";
+  if (s.name === "model_error" || s.name === "model_down") return "<b>language model</b>: no answer";
   if (s.name === "food_bank_form" || s.name === "order") {
     const items = (a.items || []).map(i => `${i.quantity} ${i.product}`).join(", ");
     return `<b>${s.name}</b>(${esc(items)})`;
@@ -650,6 +654,8 @@ function showSlip(s) {
 function playStep(s, animate) {
   const why = s.args && s.args.why;
   if (s.name === "wake") setBubble("wake", `<span class="label">It wakes up and reads</span>${esc(s.result)}`);
+  else if (s.name === "model_error") setBubble("down", `<span class="label">The language model does not answer</span>Trying once more.`);
+  else if (s.name === "model_down") setBubble("down", `<span class="label">The language model does not answer</span>${DOWN}`);
   else if (why) setBubble("why", `“${esc(why)}”`);
   else if (s.name === "done_for_now") setBubble("", `<span class="label">Done for now</span>${esc((s.args && s.args.summary) || "")}`);
   else if (s.name === "note_for_tomorrow") setBubble("why", `<span class="label">Writes a note for tomorrow</span>“${esc(s.args.text || "")}”`);
@@ -665,7 +671,7 @@ function playStep(s, animate) {
 }
 function stepCard(s) {
   const d = document.createElement("div");
-  const bad = (ACTIONS.includes(s.name) || s.name === "send_to_food_bank") && /rejected|refuses|not booked|not accepted|cannot take|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
+  const bad = s.name === "model_error" || s.name === "model_down" || (ACTIONS.includes(s.name) || s.name === "send_to_food_bank") && /rejected|refuses|not booked|not accepted|cannot take|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
   d.className = "step" + (ACTIONS.includes(s.name) ? " act" : "") + (bad ? " bad" : "");
   const why = s.args && s.args.why ? `<div class="res" style="color:#e8f1ff;font-style:italic">“${esc(s.args.why)}”</div>` : "";
   d.innerHTML = `<span class="ck">${["20:00", "21:00", "22:00"][s.checkin]}</span><div class="call">${callText(s)}</div>${why}<div class="res">${esc(s.result || "")}${s.hidden ? "\n\n" + esc(s.hidden) : ""}</div>`;
@@ -736,6 +742,7 @@ function render(v) {
   else if (v.thinking) setBubble("", `<span class="label">Thinking</span><span class="dots"><i></i><i></i><i></i></span>`);
   if (phase === "open" && lastPhase !== "open") setBubble("", `<span class="label">Off the floor</span>The shop is open. The agent waits for its next check-in.`);
   if (phase === "lobby") setBubble("", "Off duty until 20:00.");
+  else if (v.model_down && !v.thinking && !v.pending) setBubble("down", `<span class="label">The language model does not answer</span>${DOWN}`);
 
   // note for tomorrow
   const note = v.note;
