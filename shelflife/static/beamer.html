@@ -516,7 +516,7 @@
         <div>
           <h3>Scan to join and shop</h3>
           <ul>
-            <li><b>€28</b> for the whole week, Monday to Saturday.</li>
+            <li><b id="lobbyBudget">€28</b> for the whole week, Monday to Saturday.</li>
             <li>A complete dinner scores <b>+3</b> (main, side, something fresh), breakfast <b>+1</b>.</li>
             <li>Whatever spoils in your fridge costs <b>−1</b>.</li>
           </ul>
@@ -608,6 +608,7 @@ const NAMES = {};
 const $ = id => document.getElementById(id);
 const scene = $("scene");
 const euro = x => (x < 0 ? "−€" : "€") + Math.abs(x).toFixed(2);
+const money0 = x => "€" + (Number.isInteger(x) ? x : (+x).toFixed(2));  // €28, or €27.50
 let V = null, epoch = -1, since = 0, seenSteps = new Set(), lastNoteText = null, lastPendingId = null, lastDecision = 0;
 let busyUntil = 0, toolTimer = null, overlayTimer = null, lastPhase = null, lastDay = null;
 const DAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -1191,7 +1192,7 @@ const TOUR = [
   { at: [], title: "The shop around the corner",
     text: "Just around the corner from your university there is a small shop that stays open until 10 pm, the place where students buy their dinner after a late lecture. Its owner can no longer pay for a night shift, so from this Monday an AI agent runs the evenings on its own." },
   { at: [], title: "Your week",
-    text: "You are one of the students who shop there. From Monday to Saturday you have €28 for your dinners and breakfasts, while the agent decides every evening what to mark down, what to give away and what ends up in the bin." },
+    text: "You are one of the students who shop there. From Monday to Saturday you have {budget} for your dinners and breakfasts, while the agent decides every evening what to mark down, what to give away and what ends up in the bin." },
   { at: ["#scene"], title: "The corner shop",
     text: "This is the shop from the inside. It opens every evening from 8 to 10 pm, and everything that happens in it this week plays out here." },
   { at: ["#shelf"], title: "The shelf",
@@ -1231,7 +1232,7 @@ function renderTour(stop) {
   const story = !t.phone && !t.at.length;
   $("tourSpot").classList.toggle("story", story); $("tourCard").classList.toggle("story", story);
   $("tourStep").textContent = `${stop + 1} of ${TOUR.length}`;
-  $("tourTitle").textContent = t.title; $("tourText").textContent = t.text;
+  $("tourTitle").textContent = t.title; $("tourText").textContent = t.text.replace("{budget}", money0(V.budget));
   const card = $("tourCard");
   if (story) {
     Object.assign($("tourSpot").style, { left: innerWidth / 2 + "px", top: innerHeight / 2 + "px", width: "0px", height: "0px" });
@@ -1276,6 +1277,7 @@ function tourGo(delta) {
 function renderLobby(v) {
   const url = v.control.join_url || location.origin + "/";
   if ($("joinUrl").textContent !== url) { $("joinUrl").textContent = url; $("qr").src = "/api/qr.svg?u=" + encodeURIComponent(url); }
+  $("lobbyBudget").textContent = money0(v.budget);
   $("joined").textContent = v.players === 1 ? "1 student has joined" : `${v.players} students have joined`;
 }
 

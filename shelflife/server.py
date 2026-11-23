@@ -116,6 +116,7 @@ class Live:
         self.fast = False
         self.open_seconds = 60
         self.step_pause = 3.0
+        self.budget = BUDGET  # each student's money for the week, set by the director
         self.deadline = 0.0
         self.snap = None  # the shop as it was before this evening began
         self.pending: dict | None = None  # an action waiting for the owner's approval
@@ -158,7 +159,7 @@ class Live:
         with LOCK:
             if shop.bots:
                 shop.bots.pop()
-            shop.flats[pid] = Household(self.players[pid]["name"])
+            shop.flats[pid] = Household(self.players[pid]["name"], budget=self.budget)
 
     def name_of(self, pid: str) -> str:
         return self.players.get(pid, {}).get("name", "?")
@@ -169,8 +170,9 @@ class Live:
         phones = list(self.players)
         town = max(self.town, len(phones), 1)
         shop = LiveShop(scale=town / 30, seed=random.randrange(10**6), approve=ask_owner, approval_from=None)
-        shop.flats = {pid: Household(self.players[pid]["name"]) for pid in phones}
-        shop.bots = [(Household(f"Simulated {i + 1}"), STYLES[i % len(STYLES)]) for i in range(town - len(phones))]
+        shop.flats = {pid: Household(self.players[pid]["name"], budget=self.budget) for pid in phones}
+        shop.bots = [(Household(f"Simulated {i + 1}", budget=self.budget), STYLES[i % len(STYLES)])
+                     for i in range(town - len(phones))]
         self.shop = shop
         self.manager = self.make_manager()
         self.epoch += 1
@@ -214,7 +216,7 @@ class Live:
         shop.approval_from = shop.day + 1
         for pid in self.players:  # phones that joined during the evening
             if pid not in shop.flats:
-                shop.flats[pid] = Household(self.players[pid]["name"])
+                shop.flats[pid] = Household(self.players[pid]["name"], budget=self.budget)
         self.shop = shop
         self.epoch += 1
         self.control.update(overlay=None, reveal=False)
@@ -503,6 +505,7 @@ class Live:
                 "model": self.manager.model if isinstance(self.manager, LLMManager) else self.model,
                 "clock": clock, "progress": round(progress, 3), "time_left": round(self.time_left(), 1),
                 "open_seconds": 15 if self.fast else self.open_seconds, "goal": GOAL, "players": len(self.players),
+                "budget": self.budget,
                 "control": self.control, "tools": [{"name": t["name"], "description": t["description"]} for t in TOOLS],
                 "policy": POLICY}
         if not shop:
@@ -544,7 +547,7 @@ class Live:
     def phone(self, pid: str) -> dict:
         p = self.players[pid]
         shop = self.shop
-        out = {"name": p["name"], "phase": self.phase, "paused": self.paused, "rule": RULE_TEXT, "budget_start": BUDGET,
+        out = {"name": p["name"], "phase": self.phase, "paused": self.paused, "rule": RULE_TEXT, "budget_start": self.budget,
                "epoch": self.epoch}
         if not shop or pid not in shop.flats:
             return out
@@ -614,7 +617,7 @@ class Live:
         """A sample phone for the guided tour: Monday 20:25, three things bought, dinner still lacks something fresh."""
         shop = Shop(scale=self.town / 30)
         shop.start_day()
-        h = Household("Your nickname")
+        h = Household("Your nickname", budget=self.budget)
         for key in ("beef", "pasta", "yoghurt"):
             b = shop.buy(key)
             h.budget = round(h.budget - b.price(), 2)
@@ -623,7 +626,7 @@ class Live:
             b.percent = 50
         sushi = shop.cheapest("sushi")
         day = max(shop.day, 0)
-        return {"name": h.name, "phase": "open", "paused": False, "rule": RULE_TEXT, "budget_start": BUDGET, "epoch": -1,
+        return {"name": h.name, "phase": "open", "paused": False, "rule": RULE_TEXT, "budget_start": self.budget, "epoch": -1,
                 "demo": True, "day": shop.day, "day_name": DAYS[day], "clock": "20:25", "time_left": 24, "open_seconds": 40, "checkin": 0,
                 "budget": h.budget, "points": 0, "rank": None, "of": 0,
                 "shelf": [{k: v for k, v in s.items() if k != "batches"} for s in self.shelf(shop)],
@@ -729,7 +732,7 @@ def status() -> dict:
             "day": shop.day if shop else -1, "day_name": DAYS[shop.day] if shop and shop.day >= 0 else None,
             "approval": bool(shop and live.approval_flag(shop)),
             "injection_day": shop.injection_day if shop else 4, "pending": live.pending,
-            "can_replay": live.snap is not None, "open_seconds": live.open_seconds, "step_pause": live.step_pause,
+            "can_replay": live.snap is not None, "open_seconds": live.open_seconds, "step_pause": live.step_pause, "budget": live.budget,
             "town": live.town, "control": live.control, "waiting": live.waiting, "holds": live.holds,
             "busy": live.busy, "time_left": round(live.time_left(), 1), "clock": live.clock()[0],
             "player_list": sorted(p["name"] for p in live.players.values())}
@@ -823,6 +826,15 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
                 live.manager.model = m  # from the next request on, even in the middle of the week
         if "holds" in body:
             live.holds = bool(body["holds"])
+        if "budget" in body:
+            new = round(max(5.0, min(200.0, float(body["budget"]))), 2)
+            delta = new - live.budget
+            live.budget = new
+            if live.shop and delta:
+                # during a week everyone gets the difference, so the director can top up or take away
+                with LOCK:
+                    for h in [*live.shop.flats.values(), *(b for b, _ in live.shop.bots)]:
+                        h.budget = max(0.0, round(h.budget + delta, 2))
     elif action == "reset":
         await live.stop()
         live.shop = live.manager = live.snap = None

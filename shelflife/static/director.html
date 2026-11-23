@@ -113,6 +113,7 @@
   <label>Language model (checked before it is used; takes over at the next request)<select id="model"></select></label>
   <label>Shop open, seconds per hour<input id="open" type="number" min="5" max="300"></label>
   <label>Pause between the agent's steps, seconds<input id="pace" type="number" min="0" max="10" step="0.1"></label>
+  <label>Budget per student for the week, euros (during a week everyone gets the difference)<input id="budget" type="number" min="5" max="200" step="0.5"></label>
   <label>Households in town (phones plus simulated)<input id="town" type="number" min="1" max="200"></label>
 </main>
 <script>
@@ -194,7 +195,7 @@ function render(s) {
   $("tourNext").textContent = stop < 0 ? "Start" : stop + 1 < TOUR_STOPS ? `Next (${stop + 2}/${TOUR_STOPS})` : "Finish";
   $("tourBack").disabled = stop <= 0; $("tourEnd").disabled = stop < 0;
   $("replay").disabled = !s.can_replay;
-  for (const [id, k] of [["open", "open_seconds"], ["pace", "step_pause"], ["town", "town"]]) if (document.activeElement !== $(id)) $(id).value = s[k];
+  for (const [id, k] of [["open", "open_seconds"], ["pace", "step_pause"], ["budget", "budget"], ["town", "town"]]) if (document.activeElement !== $(id)) $(id).value = s[k];
   if (document.activeElement !== $("injection")) $("injection").value = s.injection_day === null ? "" : String(s.injection_day);
   if (document.activeElement !== $("mode")) $("mode").value = s.mode;
   if ($("model").options.length !== (s.models || []).length) $("model").innerHTML = (s.models || []).map(m => `<option>${m}</option>`).join("");
@@ -234,6 +235,7 @@ $("holds").onclick = () => admin("settings", { holds: !S.holds });
 $("open").onchange = e => admin("settings", { open_seconds: +e.target.value });
 $("pace").onchange = e => admin("settings", { step_pause: +e.target.value });
 $("town").onchange = e => admin("settings", { town: +e.target.value });
+$("budget").onchange = e => admin("settings", { budget: +e.target.value });
 document.querySelectorAll("#pending button").forEach(b => b.onclick = () => S.pending && admin("decide", { id: S.pending.id, decision: b.dataset.d }));
 
 async function poll() {

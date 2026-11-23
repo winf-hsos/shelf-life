@@ -2,7 +2,8 @@
 
 A lecture game about AI agents for the lecture series on food loss and waste. Each evening, an AI
 agent, the *Night Shift Agent*, runs a corner shop on its own for one week (Monday to Saturday). The
-students shop there on their phones, each with €28 for the whole week. Only complete
+students shop there on their phones, each with €28 for the whole week (set on `/director`; changed during
+a week, everyone gets the difference). Only complete
 meals score points, and food that spoils in their fridge costs points.
 
 The agent works in a visible loop. It has a goal, it reads a wake-up message, it looks things up with
