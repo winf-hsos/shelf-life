@@ -101,8 +101,16 @@ the projector's bar stays visible.
 breakfasts, spoiled items and money left, across the whole projector; it closes when the evening goes on.
 
 Keyboard on the projector page with the key: Space goes on (or closes the shop early while it is open),
-L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, C context, D pin the bar,
-H hide the bar completely and show it again (the browser remembers the choice).
+L ranking, P pause, F fast forward, A owner approval, R reveal the food bank page, C context, M music, S sounds, D pin the bar,
+H hide the bar completely and show it again (the browser remembers the choices).
+
+*Sound* plays only on the projector page opened with the director key, so a student who opens `/beamer`
+on a laptop hears nothing. Everything is synthesised in the browser (`static/sound.js`, Web Audio), without
+audio files or network: a slow lo-fi loop that gets drums while the shop is open and fades back during a
+pause or the tour; a robot chirp when the agent wakes and its own sound for every tool; a shop bell with
+students murmuring when the shop opens and when customers walk in, louder murmur when a phone joins; the
+till, the delivery van, the owner's alert and stamp, a drum roll for the ranking. Browsers start audio
+only after a click or key press on the page.
 
 *Context* (C, or the dashed button after the agent's tools) shows the request the model receives, as JSON
 for the Responses API: model, instructions, the eleven tools, and the input of this evening, which grows by

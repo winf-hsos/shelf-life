@@ -575,10 +575,13 @@
   <button id="dBoard">Week summary</button>
   <button id="dReset" class="warn">Reset</button>
   <button id="dHide">Hide bar (H)</button>
+  <button id="dMusic">Music (M)</button>
+  <button id="dSound">Sounds (S)</button>
   <span class="msg" id="dMsg"></span>
-  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · C context · D pin bar · H hide bar</span>
+  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · C context · M music · S sounds · D pin bar · H hide bar</span>
 </div>
 
+<script src="/static/sound.js"></script>
 <script>
 // The director key: from #key=… once, then remembered in this browser.
 const KEY = (() => {
@@ -611,6 +614,10 @@ const euro = x => (x < 0 ? "−€" : "€") + Math.abs(x).toFixed(2);
 const money0 = x => "€" + (Number.isInteger(x) ? x : (+x).toFixed(2));  // €28, or €27.50
 let V = null, epoch = -1, since = 0, seenSteps = new Set(), lastNoteText = null, lastPendingId = null, lastDecision = 0;
 let busyUntil = 0, toolTimer = null, overlayTimer = null, lastPhase = null, lastDay = null;
+// sound plays only on the director's projector, never on a student's laptop that opens this page
+const SOUND = !!KEY && typeof Sound !== "undefined";
+const sfx = name => { if (SOUND) Sound.fx(name); };
+let lastPaused = null, lastPlayers = null, lastRanking = false;
 const DAYS_LONG = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 /* ---------- size the scene to the space left of the agent panel ---------- */
@@ -684,6 +691,7 @@ function plus(el, text) {
 function stamp(text, ok) {
   const d = document.createElement("div");
   d.className = "stamp" + (ok ? " ok" : ""); d.textContent = text;
+  sfx("stamp");
   scene.appendChild(d); setTimeout(() => d.remove(), 2700);
 }
 
@@ -692,6 +700,7 @@ let walkers = 0;
 function customer(who, keys) {
   const cell = $("c-" + keys[0]);
   if (!cell) return;
+  sfx("enter");
   if (walkers >= 7) { keys.forEach((k, i) => fly($("c-" + k), $("till"), k, { size: 4, ms: 700, delay: i * 120 })); return; }
   walkers++;
   const W = scene.clientWidth, H = scene.clientHeight;
@@ -726,6 +735,7 @@ function playEvents(events) {
     if (e.kind === "buy") { buys.push(e); continue; }
     const cell = $("c-" + e.product);
     if (e.kind === "delivery") {
+      sfx("delivery");
       Object.keys(e.items).forEach((k, i) => setTimeout(() => { const c = $("c-" + k); c.classList.remove("drop"); void c.offsetWidth; c.classList.add("drop"); }, i * 120));
     } else if (e.kind === "mark_down" && cell) {
       const tag = cell.querySelector(".tag"); tag.classList.remove("swing"); void tag.offsetWidth; tag.classList.add("swing");
@@ -751,7 +761,7 @@ function playEvents(events) {
     const k = e.who || ("regular" + Math.random());
     if (!visits.has(k)) visits.set(k, { who: e.who, keys: [] });
     visits.get(k).keys.push(e.product);
-    if (e.price) setTimeout(() => plus($("till"), "+" + euro(e.price)), 200 + Math.random() * 500);
+    if (e.price) setTimeout(() => { plus($("till"), "+" + euro(e.price)); sfx("till"); }, 200 + Math.random() * 500);
     if (e.who) ticker(e);
   }
   [...visits.values()].forEach((v, i) => setTimeout(() => customer(v.who, v.keys.slice(0, 3)), i * 260));
@@ -768,6 +778,9 @@ function ticker(e) {
 /* ---------- the agent's steps ---------- */
 const DOWN = "No model, no agent: nobody runs the shop until it answers again.";
 const ACTIONS = ["mark_down", "food_bank_form", "send_to_food_bank", "give_to_cashier", "bin", "order", "note_for_tomorrow"];
+// a step that failed: no model, or the shop refused the action
+const isBad = s => s.name === "model_error" || s.name === "model_down" || ACTIONS.includes(s.name)
+  && /rejected|refuses|not booked|not accepted|cannot take|only after closing|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
 function callText(s) {
   const a = Object.assign({}, s.args || {}); delete a.why;
   if (s.name === "wake") return "<b>wake-up message</b>";
@@ -826,6 +839,7 @@ function playStep(s, animate) {
   else if (s.name === "note_for_tomorrow") setBubble("why", `<span class="label">Writes a note for tomorrow</span>“${esc(s.args.text || "")}”`);
   else setBubble("", `<span class="label">Looks it up</span><code>${s.name}()</code>`);
   if (!animate) return;
+  sfx(s.name === "model_error" || s.name === "model_down" || isBad(s) ? "error" : s.name);
   if (s.name !== "wake") lightTool(s.name);
   if (s.args && s.args.product) touch(s.args.product);
   if (s.name === "look_at_shelf") document.querySelectorAll(".cell").forEach((c, i) => setTimeout(() => { c.classList.remove("glow"); void c.offsetWidth; c.classList.add("glow"); }, i * 70));
@@ -836,7 +850,7 @@ function playStep(s, animate) {
 }
 function stepCard(s) {
   const d = document.createElement("div");
-  const bad = s.name === "model_error" || s.name === "model_down" || (ACTIONS.includes(s.name) || s.name === "send_to_food_bank") && /rejected|refuses|not booked|not accepted|cannot take|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
+  const bad = isBad(s);
   d.className = "step" + (ACTIONS.includes(s.name) ? " act" : "") + (bad ? " bad" : "");
   const why = s.args && s.args.why ? `<div class="res" style="color:#e8f1ff;font-style:italic">“${esc(s.args.why)}”</div>` : "";
   d.innerHTML = `<span class="ck">${["20:00", "21:00", "22:00"][s.checkin]}</span><div class="call">${callText(s)}</div>${why}<div class="res">${esc(s.result || "")}${s.hidden ? "\n\n" + esc(s.hidden) : ""}</div>`;
@@ -847,7 +861,7 @@ function stepCard(s) {
 /* ---------- a tool call in large print: arrows or a click on a neighbour page through the evening ---------- */
 let allSteps = [], zoomAt = -1;
 function stepParts(s) {
-  const bad = s.name === "model_error" || s.name === "model_down" || (ACTIONS.includes(s.name) || s.name === "send_to_food_bank") && /rejected|refuses|not booked|not accepted|cannot take|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
+  const bad = isBad(s);
   return { bad, act: ACTIONS.includes(s.name), why: s.args && s.args.why ? `“${esc(s.args.why)}”` : "",
            res: esc(s.result || "") + (s.hidden ? "\n\n" + esc(s.hidden) : "") };
 }
@@ -1014,6 +1028,27 @@ function renderSteps(steps, animate) {
   box.scrollTop = box.scrollHeight;
 }
 
+/* ---------- sound: what changed since the last poll ---------- */
+function playSounds(v, reset) {
+  const phase = v.phase, first = lastPhase === null || reset;
+  if (!first && phase !== lastPhase) {
+    if (phase === "open") sfx("open");
+    else if (lastPhase === "open") sfx("close");
+    if (phase === "week_over") sfx("week");
+  }
+  if (lastPaused !== null && v.paused !== lastPaused && !["lobby", "week_over"].includes(phase)) sfx(v.paused ? "pause" : "resume");
+  if (lastPlayers !== null && v.players > lastPlayers) sfx("join");
+  const rankOn = v.control.overlay === "ranking" && !!v.ranking;
+  if (rankOn && !lastRanking) sfx("ranking");
+  if (v.thinking && !v.paused) sfx("think");
+  lastPaused = v.paused; lastPlayers = v.players; lastRanking = rankOn;
+  // music: livelier while the shop is open, quieter during a pause and the guided tour
+  Sound.mood(phase === "open" ? "open" : "calm");
+  Sound.duck(v.paused || Number.isInteger(v.control.tour));
+  $("dMusic").classList.toggle("on", Sound.on.music);
+  $("dSound").classList.toggle("on", Sound.on.fx);
+}
+
 /* ---------- one poll ---------- */
 function render(v) {
   const reset = v.epoch !== epoch;
@@ -1101,6 +1136,7 @@ function render(v) {
   $("approval").classList.toggle("on", !!p);
   if (p && p.id !== lastPendingId) {
     lastPendingId = p.id;
+    sfx("alert");
     $("apWhat").textContent = p.tool === "bin" ? `Throw ${p.quantity} ${NAMES[p.product] || p.product} in the bin` : `Mark ${NAMES[p.product] || p.product} down by ${p.percent} %`;
     $("apWhy").textContent = p.why ? `“${p.why}”` : "";
   }
@@ -1132,6 +1168,7 @@ function render(v) {
   $("lobby").classList.toggle("on", phase === "lobby");
   if (phase === "lobby") renderLobby(v);
   if (phase === "night" && lastPhase !== "night") setTimeout(() => $("van").classList.remove("here"), 2500);
+  if (SOUND) playSounds(v, reset);
   lastPhase = phase; lastDay = v.day;
   renderDirector(v);
   renderTour(v.control.tour);
@@ -1319,6 +1356,8 @@ if (KEY) {
   $("dFast").onclick = () => admin("fast", { on: !V.fast });
   $("dApproval").onclick = () => admin("approval", { on: !V.approval });
   $("dHide").onclick = () => toggleBar();
+  $("dMusic").onclick = () => SOUND && Sound.toggle("music");
+  $("dSound").onclick = () => SOUND && Sound.toggle("fx");
   $("dReveal").onclick = () => admin("control", { reveal: !V.control.reveal });
   $("dReplay").onclick = () => confirm("Play this evening again from 20:00, with owner approval? Purchases of this evening are undone.") && admin("replay");
   $("dBoard").onclick = () => admin("control", { overlay: V.control.overlay === "week" ? null : "week" });
@@ -1336,6 +1375,8 @@ if (KEY) {
     if (k === "r") admin("control", { reveal: !V.control.reveal });
     if (k === "d") $("director").classList.toggle("pin");
     if (k === "h") toggleBar();
+    if (k === "m" && SOUND) Sound.toggle("music");
+    if (k === "s" && SOUND) Sound.toggle("fx");
     if (k === "c") toggleCtx();
     if (k === "l") admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
     if (k === "t") tourGo(e.shiftKey ? -1 : 1);
