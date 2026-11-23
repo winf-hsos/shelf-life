@@ -31,6 +31,7 @@ Environment variables:
 |---|---|
 | `OPENAI_API_KEY` | key for the language model; without it only the fixed rule runs |
 | `SHELFLIFE_MODEL` | model name, default `gpt-6-luna` |
+| `SHELFLIFE_MODELS` | models the director may choose from, comma-separated, default `gpt-6-luna,gpt-6-sol,gpt-6-terra` |
 | `SHELFLIFE_ADMIN_KEY` | director key; a random one is printed if unset |
 | `SHELFLIFE_MODEL_TIMEOUT` | seconds per model request, default 30 |
 | `SHELFLIFE_PUBLIC_URL` | join link for the QR code; defaults to this computer's LAN address |
@@ -63,10 +64,10 @@ After the lecture: `systemctl --user disable --now shelf-life`.
 
 1. **Morning:** the delivery arrives; goods left from earlier evenings are older now.
 2. **20:00 check-in:** the agent reads its wake-up message (with its note from yesterday) and acts.
-3. **Shop open** (40 s): phones, simulated students and regulars buy.
+3. **Shop open** (60 s by default): phones, simulated students and regulars buy.
 4. **21:00 check-in:** last chance to book the food bank and change prices.
-5. **Shop open** (40 s).
-6. **22:00 check-in:** the agent hands on, keeps or bins what is left; everything else that cannot be
+5. **Shop open** (60 s).
+6. **22:00 check-in:** the agent hands on (food bank, or up to 5 items to the cashier, who takes goods only now), keeps or bins what is left; everything else that cannot be
    sold on the next opening day goes in the bin. Then every student cooks.
 7. **Night:** the summary of the evening, until the lecturer starts the next evening.
 
@@ -76,6 +77,8 @@ this off.
 
 The agent knows the purchase price: the shop pays half the shelf price for everything that leaves the
 shelf, sold, given away or binned. At 22:00 `look_at_shelf` marks for every pack whether it can stay.
+Markdowns go in steps of 5 %, from 5 to 90 % off; between two tool calls the agent waits 3 s by
+default, so the room can follow.
 
 ## Director
 
@@ -96,12 +99,16 @@ H hide the bar completely and show it again (the browser remembers the choice).
 
 A pause shows a banner and a yellow frame on the projector and a notice on every phone; the clock and
 the shop stand still until it ends. A click on a tool call in the agent's panel opens it in large print
-with the calls before and after it; the arrow keys page through the evening, Esc closes it.
+with the calls before and after it; the arrow keys page through the evening, Esc closes it. A click on
+one of the agent's tools below its speech bubble opens a small card with what the agent reads about the
+tool, an example call and its answer; the tool lights up, and the arrow keys page through all eleven.
 
 - **Owner approval:** binning more than 10 items or a markdown above 50 % waits for *Approve* or
   *Reject* on the projector or the director's phone.
 - **Injection:** the day on which the food bank's confirmation page carries the hidden text (default
   Friday). It is set only on `/director`, so the room never sees it on the projector.
+- **Language model:** chosen on `/director` from `SHELFLIFE_MODELS`. Each choice is tried with a short
+  request first; a model the key cannot use is refused with the reason, and the old one stays.
 - **Model outage:** if the language model does not answer (30 s per request, one retry), the check-in
   ends undone and the projector says so; the evening goes on without the agent. Every later check-in
   tries again.

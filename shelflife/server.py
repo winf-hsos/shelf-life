@@ -30,7 +30,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from .agent import TOOLS, LLMManager, RuleManager
+from .agent import MODEL, MODELS, TOOLS, LLMManager, RuleManager, check_model
 from .bots import STYLES, shop_once
 from .shop import (BUDGET, BY_KEY, CASHIER_LIMIT, CHECKINS, DAY_NOTE, DAYS, FOOD_BANK_KG, GOAL, INJECTIONS, POLICY,
                    PRODUCTS, SHOP_DAYS, Household, Shop, day_name, fridge_expiry, next_open)
@@ -105,6 +105,7 @@ class Live:
         self.manager = None
         self.mode = "llm" if os.environ.get("OPENAI_API_KEY") else "rule"
         self.effort = "low"
+        self.model = MODEL
         self.town = 30  # households in the town; simulated students fill what the phones leave free
         self.phase = "lobby"  # lobby | morning | checkin | open | night | week_over
         self.epoch = 0  # changes whenever the shop is replaced, so pages drop their animation state
@@ -113,8 +114,8 @@ class Live:
         self.go = False
         self.skip = False
         self.fast = False
-        self.open_seconds = 40
-        self.step_pause = 2.2
+        self.open_seconds = 60
+        self.step_pause = 3.0
         self.deadline = 0.0
         self.snap = None  # the shop as it was before this evening began
         self.pending: dict | None = None  # an action waiting for the owner's approval
@@ -179,7 +180,7 @@ class Live:
 
     def make_manager(self):
         if self.mode == "llm":
-            return LLMManager(effort=self.effort)
+            return LLMManager(model=self.model, effort=self.effort)
         return RuleManager()
 
     async def stop(self) -> None:
@@ -499,6 +500,7 @@ class Live:
         clock, progress = self.clock()
         mode = "llm" if isinstance(self.manager, LLMManager) else "rule" if self.manager else self.mode
         base = {"epoch": self.epoch, "phase": self.phase, "paused": self.paused, "fast": self.fast, "mode": mode,
+                "model": self.manager.model if isinstance(self.manager, LLMManager) else self.model,
                 "clock": clock, "progress": round(progress, 3), "time_left": round(self.time_left(), 1),
                 "open_seconds": 15 if self.fast else self.open_seconds, "goal": GOAL, "players": len(self.players),
                 "control": self.control, "tools": [{"name": t["name"], "description": t["description"]} for t in TOOLS],
@@ -722,6 +724,7 @@ def api_view(since: int = 0, epoch: int = 0):
 def status() -> dict:
     shop = live.shop
     return {"phase": live.phase, "paused": live.paused, "fast": live.fast, "mode": live.mode, "effort": live.effort,
+            "model": live.model, "models": MODELS,
             "has_key": bool(os.environ.get("OPENAI_API_KEY")), "players": len(live.players),
             "day": shop.day if shop else -1, "day_name": DAYS[shop.day] if shop and shop.day >= 0 else None,
             "approval": bool(shop and live.approval_flag(shop)),
@@ -795,6 +798,18 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
             live.mode = str(body["mode"])
         if "effort" in body:
             live.effort = str(body["effort"])
+        if "model" in body:
+            m = str(body["model"])
+            if m not in MODELS:
+                raise HTTPException(400, f"Unknown model {m}.")
+            if not os.environ.get("OPENAI_API_KEY"):
+                raise HTTPException(409, "A model API key is required for the language model.")
+            problem = await asyncio.to_thread(check_model, m)
+            if problem:
+                raise HTTPException(409, problem)
+            live.model = m
+            if isinstance(live.manager, LLMManager):
+                live.manager.model = m  # from the next request on, even in the middle of the week
         if "holds" in body:
             live.holds = bool(body["holds"])
     elif action == "reset":

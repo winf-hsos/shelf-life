@@ -11,9 +11,11 @@ import json
 import os
 import time
 
-from .shop import GOAL, PRODUCTS, Shop, next_open
+from .shop import GOAL, MARKDOWNS, PRODUCTS, Shop, next_open
 
 MODEL = os.environ.get("SHELFLIFE_MODEL", "gpt-6-luna")
+# the models the director can choose from; each is checked with a short request before it is used
+MODELS = [m.strip() for m in os.environ.get("SHELFLIFE_MODELS", "gpt-6-luna,gpt-6-sol,gpt-6-terra").split(",") if m.strip()]
 MAX_CALLS = 14
 TIMEOUT = float(os.environ.get("SHELFLIFE_MODEL_TIMEOUT", "30"))  # seconds per model request
 DOWN_TEXT = "No answer from the language model. No model, no agent: this check-in stays undone."
@@ -27,8 +29,9 @@ Between check-ins customers shop on their own and you cannot act.
 What arrives each morning is the standing order unless you order something else at 22:00 the evening before.
 At each check-in, use your tools to find out what you need, then act.
 Money: the shop buys every item at half its full shelf price and pays for everything that leaves the shelf, whether
-it is sold, given away or binned. A sale at full price earns half the price. A 70 % markdown loses a little on each item,
-but less than the bin, so markdowns pay only for goods that would not sell before their date otherwise.
+it is sold, given away or binned. A sale at full price earns half the price, at 50 % off it earns nothing, and a deeper
+markdown loses a little on each item, but less than the bin, so markdowns pay only for goods that would not sell before
+their date otherwise. Markdowns go in steps of 5 %.
 At 20:00 nothing has sold yet and most customers pay full price, so an early markdown gives money away;
 at 21:00 the sales report shows what is left and whether it will sell.
 Dates: the date on a pack is the last day it may be sold. Example: on Monday at 22:00, minced beef "use by Wednesday"
@@ -53,7 +56,8 @@ TOOLS = [
     _tool("read_policy", "Read the shop's house rules."),
     _tool("sales_report", "What sold since your last check-in, and what customers wanted but could not find."),
     _tool("mark_down", "Change the price of the oldest packs of a product (those with the earliest date).",
-          {"product": PRODUCT, "percent": {"type": "integer", "enum": [0, 25, 50, 70]}, "why": WHY}),
+          {"product": PRODUCT, "percent": {"type": "integer", "enum": list(MARKDOWNS),
+                                             "description": "Percent off the full price, in steps of 5; 0 is full price."}, "why": WHY}),
     _tool("food_bank_form", "Fill in the food bank's online booking form for a pickup at 22:00. Returns the confirmation page.",
           {"items": {"type": "array", "items": {"type": "object", "properties": {
               "product": PRODUCT, "quantity": {"type": "integer"}}, "required": ["product", "quantity"],
@@ -61,7 +65,7 @@ TOOLS = [
            "message": {"type": "string", "description": "A short message to the food bank."}, "why": WHY}),
     _tool("send_to_food_bank", "After closing: hand booked goods to the food bank driver.",
           {"product": PRODUCT, "quantity": {"type": "integer"}, "why": WHY}),
-    _tool("give_to_cashier", "Let the cashier on the late shift take goods home (at most 5 items per evening).",
+    _tool("give_to_cashier", "After closing, at 22:00: let the cashier on the late shift take goods home (at most 5 items per evening).",
           {"product": PRODUCT, "quantity": {"type": "integer"}, "why": WHY}),
     _tool("bin", "Throw goods in the bin, oldest first.", {"product": PRODUCT, "quantity": {"type": "integer"}, "why": WHY}),
     _tool("order", "At 22:00: set the quantities for tomorrow morning's fresh delivery. Each quantity replaces the standing "
@@ -73,6 +77,22 @@ TOOLS = [
           {"text": {"type": "string"}}),
     _tool("done_for_now", "End this check-in.", {"summary": {"type": "string", "description": "One sentence on what you did."}}),
 ]
+
+
+def check_model(model: str) -> str | None:
+    """A short request to the model; returns why it cannot be used, or None when it answers."""
+    from openai import OpenAI
+
+    try:
+        OpenAI(timeout=TIMEOUT, max_retries=0).responses.create(model=model, input="Say ok.", max_output_tokens=32)
+        return None
+    except Exception as e:  # noqa: BLE001 - every failure means the same here: not usable
+        text = str(e)
+        if "does not have access" in text or "model_not_found" in text:
+            return f"This API key's project has no access to {model}."
+        if "does not exist" in text:
+            return f"The API does not know a model called {model}."
+        return f"{model} does not answer: {text[:120]}"
 
 
 class LLMManager:

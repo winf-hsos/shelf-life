@@ -110,6 +110,7 @@
   <div class="grid">
     <button class="wide" id="holds">Stop before and after each check-in</button>
   </div>
+  <label>Language model (checked before it is used; takes over at the next request)<select id="model"></select></label>
   <label>Shop open, seconds per hour<input id="open" type="number" min="5" max="300"></label>
   <label>Pause between the agent's steps, seconds<input id="pace" type="number" min="0" max="10" step="0.1"></label>
   <label>Households in town (phones plus simulated)<input id="town" type="number" min="1" max="200"></label>
@@ -169,7 +170,7 @@ function render(s) {
   $("nowDay").textContent = s.day_name || "No week yet";
   $("nowClock").textContent = s.day_name ? s.clock : "";
   $("nowWhat").textContent = (s.paused ? "Paused. " : "") + t.now;
-  $("nowMeta").textContent = `${s.players} phones · ${s.mode === "llm" ? "language model" : "fixed rule"}${s.has_key ? "" : " (no model key)"}${s.holds ? "" : " · runs without stops"}`;
+  $("nowMeta").textContent = `${s.players} phones · ${s.mode === "llm" ? s.model : "fixed rule"}${s.has_key ? "" : " (no model key)"}${s.holds ? "" : " · runs without stops"}`;
   $("nextLabel").textContent = t.label;
   $("nextHint").textContent = t.hint || "";
   $("next").disabled = !!t.disabled;
@@ -196,6 +197,8 @@ function render(s) {
   for (const [id, k] of [["open", "open_seconds"], ["pace", "step_pause"], ["town", "town"]]) if (document.activeElement !== $(id)) $(id).value = s[k];
   if (document.activeElement !== $("injection")) $("injection").value = s.injection_day === null ? "" : String(s.injection_day);
   if (document.activeElement !== $("mode")) $("mode").value = s.mode;
+  if ($("model").options.length !== (s.models || []).length) $("model").innerHTML = (s.models || []).map(m => `<option>${m}</option>`).join("");
+  if (document.activeElement !== $("model")) $("model").value = s.model;
   const p = s.pending;
   $("pending").style.display = p ? "block" : "none";
   if (p) {
@@ -222,6 +225,7 @@ $("approval").onclick = () => admin("approval", { on: !S.approval });
 $("injection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
 $("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval? Purchases of this evening are undone.") && admin("replay");
 $("mode").onchange = e => admin("settings", { mode: e.target.value });
+$("model").onchange = e => { e.target.blur(); admin("settings", { model: e.target.value }); };
 $("start").onclick = () => confirm("Start a new week? The current one is lost.") && admin("start_week", { mode: $("mode").value });
 $("ranking").onclick = () => admin("control", { overlay: S.control.overlay === "ranking" ? null : "ranking" });
 $("board").onclick = () => admin("control", { overlay: S.control.overlay === "week" ? null : "week" });

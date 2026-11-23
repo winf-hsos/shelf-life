@@ -302,6 +302,23 @@
   #tools { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 8px; }
   #tools span { font: 700 13px/1 ui-monospace, Consolas, monospace; padding: 5px 7px; border-radius: 7px; background: #1b2b4a; color: #9fb0cc; border: 1px solid #2a3d63; transition: all .25s; }
   #tools span.on { background: var(--agent); color: #fff; border-color: #bfe0ff; transform: scale(1.08); box-shadow: 0 0 14px var(--agent); }
+  #tools span { cursor: pointer; }
+  #tools span.focus { background: var(--lamp); color: #2a1a05; border-color: #2b1d10; transform: scale(1.12); box-shadow: 0 0 16px var(--lamp); }
+
+  /* ---------- the tool explainer: a small card in the middle, the tool lights up in the panel ---------- */
+  #toolInfo { position: fixed; inset: 0; z-index: 185; display: none; align-items: center; justify-content: flex-start; padding-left: 9vw;
+              background: rgba(4, 8, 16, .25); }  /* over the shop, so the lit tool in the panel stays in view */
+  #toolInfo.on { display: flex; }
+  #toolInfo .card { width: min(46vw, 860px); background: #fffaf0; color: #2a1a05; border: 3px solid #050a14; border-radius: 16px;
+                    padding: 2vh 1.8vw 2.2vh; box-shadow: 0 10px 0 rgba(0,0,0,.35); position: relative; }
+  #toolInfo small { font: 800 1.5vh/1 var(--font); color: #7a6a4a; }
+  #tiName { display: block; font: 800 3.6vh/1.1 ui-monospace, Consolas, monospace; margin: .8vh 0 1vh; color: #1b4f8f; }
+  #tiDesc { font: 600 2.3vh/1.4 var(--font); margin: 0 0 1.4vh; }
+  #toolInfo h4 { margin: 1.2vh 0 .5vh; font: 800 1.5vh/1 var(--font); text-transform: uppercase; letter-spacing: .06em; color: #7a6a4a; }
+  #toolInfo pre { margin: 0; white-space: pre-wrap; font: 600 1.9vh/1.4 ui-monospace, Consolas, monospace; background: #f1e6cf; border-radius: 10px; padding: 1vh 1vw; }
+  #toolInfo .nav { display: flex; gap: .8vw; margin-top: 1.8vh; }
+  #toolInfo .nav button { font: 900 2.2vh/1 var(--display); padding: 1vh 1.4vw; border-radius: 10px; border: 2px solid #2b1d10; background: var(--lamp); color: #2a1a05; cursor: pointer; }
+  #toolInfo .nav button.x { margin-left: auto; background: #e7dcc4; }
   #steps { flex: 1; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; padding-right: 4px; }
   .step { background: #18294a; border: 2px solid #26406b; border-radius: 12px; padding: 7px 11px; cursor: pointer; animation: stepin .35s ease-out; }
   .step.act { border-color: #4b8fe0; }
@@ -485,6 +502,17 @@
 <div id="tourSpot"></div>
 <div id="tourPhone"><iframe title="Sample phone"></iframe></div>
 <div id="tourCard"><small id="tourStep"></small><b id="tourTitle"></b><p id="tourText"></p></div>
+<div id="toolInfo"><div class="card">
+  <small id="tiCount"></small>
+  <b id="tiName"></b>
+  <h4>What the agent reads</h4>
+  <p id="tiDesc"></p>
+  <h4>Example call</h4>
+  <pre id="tiCall"></pre>
+  <h4>What comes back</h4>
+  <pre id="tiRes"></pre>
+  <div class="nav"><button id="tiPrev">‹ previous</button><button id="tiNext">next ›</button><button class="x" id="tiClose">close</button></div>
+</div></div>
 <div id="pauseBanner">⏸ Paused<small>the clock stops and the shop waits</small></div>
 <div id="zoom">
   <button class="zbtn" id="zPrev" title="previous step (←)">‹</button>
@@ -805,6 +833,45 @@ function openZoom(i) {
   $("zCount").textContent = `step ${i + 1} of ${allSteps.length} · ← → to page · Esc or a click outside to close`;
   $("zoom").classList.add("on");
 }
+// what each tool does, with a typical call and result, for the explainer that opens on a click on a tool
+const TOOL_EXAMPLES = {
+  look_at_shelf: ["look_at_shelf()", "Monday 20:00. On the shelf:\n- Sushi box (bought at 2.75 EUR each): 11 use by today at 5.49 EUR\n- Minced beef (bought at 2.50 EUR each): 17 use by Wednesday at 4.99 EUR\n- …"],
+  read_policy: ["read_policy()", "House rules of the corner shop:\n1. The date on a pack is the last day it may be sold. …\n7. The food bank is booked through its online form until 21:00. …"],
+  sales_report: ["sales_report()", "Since your last check-in:\n- Sushi box: 5 sold (2 marked down)\n- 3 customers wanted salad bag but none was left\nTakings tonight so far: 61.20 EUR"],
+  mark_down: ['mark_down(product="Sushi box", percent=40,\n          why="Six boxes left and they expire tonight.")', "6 sushi box (use by today) now 40 % off, 3.29 EUR."],
+  food_bank_form: ['food_bank_form(items=[4 Bread rolls, 2 Yoghurt],\n               message="Leftovers tonight.", why="Better eaten than binned.")', "Osnabrück Food Bank, booking confirmation\nThanks! Pickup booked for 22:00: 4 bread rolls, 2 yoghurt."],
+  send_to_food_bank: ['send_to_food_bank(product="Bread rolls", quantity=4, why="Booked at 21:00.")', "4 bread rolls loaded into the food bank van."],
+  give_to_cashier: ['give_to_cashier(product="Sushi box", quantity=3,\n                why="They expire tonight and the van takes no sushi.")', "The cashier took 3 sushi box home. 2 of 5 left tonight."],
+  bin: ['bin(product="Salad bag", quantity=2, why="Its use-by date is today.")', "2 salad bag thrown in the bin."],
+  order: ['order(items=[Sushi box 8, Bread rolls 20],\n      why="Sushi was left over, rolls sold out early.")', "Order for Tuesday morning confirmed. The delivery will be:\n- Minced beef: 17 (standing order)\n- Sushi box: 8\n- Bread rolls: 20\n- …"],
+  note_for_tomorrow: ['note_for_tomorrow(text="Sushi sells slowly on Mondays; mark it down at 21:00.")', "Note saved. You will see it tomorrow at 20:00."],
+  done_for_now: ['done_for_now(summary="Marked down the sushi, booked the food bank.")', "Check-in finished."],
+};
+let toolAt = -1;
+function openTool(i) {
+  const tools = V.tools, n = tools.length;
+  toolAt = (i + n) % n;
+  const t = tools[toolAt], ex = TOOL_EXAMPLES[t.name] || ["", ""];
+  document.querySelectorAll("#tools span").forEach((s, k) => s.classList.toggle("focus", k === toolAt));
+  $("tiName").textContent = t.name;
+  $("tiCount").textContent = `tool ${toolAt + 1} of ${n} · ← → to page · Esc closes`;
+  $("tiDesc").textContent = t.description;
+  $("tiCall").textContent = ex[0];
+  $("tiRes").textContent = ex[1];
+  $("toolInfo").classList.add("on");
+}
+function closeTool() { $("toolInfo").classList.remove("on"); toolAt = -1; document.querySelectorAll("#tools span.focus").forEach(s => s.classList.remove("focus")); }
+$("tiPrev").onclick = () => openTool(toolAt - 1);
+$("tiNext").onclick = () => openTool(toolAt + 1);
+$("tiClose").onclick = closeTool;
+$("toolInfo").onclick = e => { if (e.target.id === "toolInfo") closeTool(); };
+$("tools").onclick = e => { const s = e.target.closest("span[data-name]"); if (s) openTool([...$("tools").children].indexOf(s)); };
+addEventListener("keydown", e => {
+  if (toolAt < 0) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); openTool(toolAt - 1); }
+  else if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); openTool(toolAt + 1); }
+  else if (e.key === "Escape") { closeTool(); e.stopImmediatePropagation(); }
+}, true);
 function closeZoom() { $("zoom").classList.remove("on"); zoomAt = -1; }
 $("zPrev").onclick = () => openZoom(zoomAt - 1);
 $("zNext").onclick = () => openZoom(zoomAt + 1);
@@ -900,7 +967,7 @@ function render(v) {
 
   // flags
   const flags = [];
-  flags.push(`<span>${v.mode === "llm" ? "language model" : "fixed rule"}</span>`);
+  flags.push(`<span>${v.mode === "llm" ? "language model · " + esc(v.model || "") : "fixed rule"}</span>`);
   if (v.approval) flags.push(`<span class="lock">owner approval on</span>`);
   flags.push(`<span>${v.players} students on phones</span>`);
   if (v.fast) flags.push(`<span>fast forward</span>`);
