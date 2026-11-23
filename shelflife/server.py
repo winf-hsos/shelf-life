@@ -5,13 +5,13 @@
     OPENAI_API_KEY=...                       # read by the OpenAI client, never stored or sent to a browser
     SHELFLIFE_PUBLIC_URL=https://...       # join link for the QR code
 
-Pages: /          phone: a student's shared flat that shops in the corner shop
+Pages: /          phone: a student who shops in the corner shop
        /beamer    projector; with #key=... it carries the director's controls
        /director  director on a phone (needs #key=...)
 
 The week runs evening by evening. Each evening the Night Shift Agent checks in at 20:00, 21:00
 and 22:00; between check-ins the shop is open and the phones, simulated students and regulars
-shop. After closing every flat cooks, and the lecturer continues to the next evening.
+shop. After closing every student cooks, and the lecturer continues to the next evening.
 Nothing about players is written to disk.
 """
 
@@ -116,7 +116,6 @@ class Live:
         self.open_seconds = 40
         self.step_pause = 2.2
         self.deadline = 0.0
-        self.left_when_paused = 0.0
         self.snap = None  # the shop as it was before this evening began
         self.pending: dict | None = None  # an action waiting for the owner's approval
         self.pending_event: threading.Event | None = None
@@ -138,7 +137,7 @@ class Live:
                 self.players[pid]["name"] = self.unique(name, pid)
             return pid
         pid = secrets.token_urlsafe(12)
-        self.players[pid] = {"name": self.unique(name or f"Flat {len(self.players) + 1}", pid), "seen": time.time()}
+        self.players[pid] = {"name": self.unique(name or f"Student {len(self.players) + 1}", pid), "seen": time.time()}
         if self.shop:
             self.add_flat(self.shop, pid)
         return pid
@@ -270,11 +269,12 @@ class Live:
             self.cook(shop)
 
     async def hold(self, seconds: float) -> None:
-        end = time.time() + seconds
-        while time.time() < end or self.paused:
-            if self.paused:
-                end += 0.2
+        left = seconds
+        while left > 0 or self.paused:
+            t = time.time()
             await asyncio.sleep(0.2)
+            if not self.paused:
+                left -= time.time() - t
 
     async def checkin(self, shop: LiveShop, c: int) -> None:
         self.phase = "checkin"
@@ -317,10 +317,13 @@ class Live:
         self.phase = "open"
         self.skip = False
         self.deadline = time.time() + seconds
+        frozen = None  # the time left when the pause began: the clock stands still until it ends
         while True:
             if self.paused:
-                self.deadline += 0.2
+                frozen = self.deadline - time.time() if frozen is None else frozen
+                self.deadline = time.time() + frozen
             else:
+                frozen = None
                 now = seconds - (self.deadline - time.time())
                 while due and due[0][0] <= now:
                     self.act(shop, due.pop(0)[1], c)
@@ -481,8 +484,13 @@ class Live:
     def week_end(self, shop: LiveShop) -> dict:
         flats = list(shop.flats.values()) + [h for h, _ in shop.bots]
         w = shop.week()
-        return {"shop_bin_kg": round(w["binned_kg"] + w["auto_binned_kg"], 1),
-                "home_bin_kg": round(sum(h.spoiled_kg for h in flats), 1),
+        home = sum(h.spoiled_kg for h in flats)
+        # every kilo delivered this week ends up in exactly one of these: the shares on the projector add up to 100 %
+        return {"delivered_kg": round(w["delivered_kg"], 1),
+                "eaten_kg": round(w["sold_kg"] - home, 1), "home_bin_kg": round(home, 1),
+                "food_bank_kg": round(w["food_bank_kg"], 1), "cashier_kg": round(w["cashier_kg"], 1),
+                "shop_bin_kg": round(w["binned_kg"] + w["auto_binned_kg"], 1),
+                "shelf_kg": round(sum(b.qty * b.product.kg for b in shop.batches if b.qty > 0), 1),
                 "saved_kg": round(w["food_bank_kg"] + w["cashier_kg"], 1),
                 "profit": w["profit"], "revenue": w["revenue"], "households": len(flats)}
 
@@ -569,7 +577,7 @@ class Live:
                 for (k, t), n in sorted(groups.items(), key=lambda kv: (order[kv[0][1]], kv[0][0]))]
 
     def meals(self, h: Household, day: int) -> dict:
-        """What the flat would cook tonight from its fridge as it is now."""
+        """What the student would cook tonight from the fridge as it is now."""
         trial = copy.deepcopy(h)
         r = trial.cook(day)
 
@@ -599,6 +607,27 @@ class Live:
                     have.remove(breakfast[g])
         return {"dinner": dinner, "breakfast": breakfast, "dinner_ok": bool(r["dinner"]),
                 "breakfast_ok": bool(r["breakfast"]), "group_names": GROUP_NAMES}
+
+    def demo_phone(self) -> dict:
+        """A sample phone for the guided tour: Monday 20:25, three things bought, dinner still lacks something fresh."""
+        shop = Shop(scale=self.town / 30)
+        shop.start_day()
+        h = Household("Your nickname")
+        for key in ("beef", "pasta", "yoghurt"):
+            b = shop.buy(key)
+            h.budget = round(h.budget - b.price(), 2)
+            h.fridge.append([key, fridge_expiry(b)])
+        for b in shop.stock("sushi"):
+            b.percent = 50
+        sushi = shop.cheapest("sushi")
+        day = max(shop.day, 0)
+        return {"name": h.name, "phase": "open", "paused": False, "rule": RULE_TEXT, "budget_start": BUDGET, "epoch": -1,
+                "demo": True, "day": shop.day, "day_name": DAYS[day], "clock": "20:25", "time_left": 24, "open_seconds": 40, "checkin": 0,
+                "budget": h.budget, "points": 0, "rank": None, "of": 0,
+                "shelf": [{k: v for k, v in s.items() if k != "batches"} for s in self.shelf(shop)],
+                "fridge": self.fridge(h, day), "meals": self.meals(h, day),
+                "agent_line": f"Sushi box (use by today) now 50 % off: {sushi.price():.2f} EUR.", "tonight": None,
+                "week": {"meals": 0, "breakfasts": 0, "spoiled": 0}}
 
     def agent_line(self, shop: LiveShop) -> str | None:
         for s in reversed(shop.steps):
@@ -639,6 +668,11 @@ async def api_join(request: Request):
     body = await request.json() if (await request.body()) else {}
     pid = live.join(body.get("name", ""), body.get("pid"))
     return {"pid": pid, "name": live.players[pid]["name"]}
+
+
+@app.get("/api/demo_phone")
+def api_demo_phone():
+    return live.demo_phone()
 
 
 @app.get("/api/me")

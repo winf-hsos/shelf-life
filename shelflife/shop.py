@@ -122,7 +122,7 @@ class Batch:
 
 @dataclass
 class Household:
-    """A student's shared flat. `fridge` holds [key, expiry day] per item."""
+    """A student with a fridge and a budget for the week. `fridge` holds [key, expiry day] per item."""
     name: str
     budget: float = BUDGET
     fridge: list = field(default_factory=list)
@@ -235,12 +235,14 @@ class Shop:
         self.missed_tonight = {}
         self.delivered = {}
         plan = {**self.standing(self.day), **self.orders.get(self.day, {})}
+        delivered_kg = 0.0
         for key, q in plan.items():
             if q:
                 p = BY_KEY[key]
                 self.add_batch(key, q, self.day + p.life)
                 self.delivered[key] = q
-        self.days.append({"day": self.day, "revenue": 0.0, "sold": 0, "sold_kg": 0.0, "discounted": 0,
+                delivered_kg += q * p.kg
+        self.days.append({"day": self.day, "delivered_kg": delivered_kg, "revenue": 0.0, "sold": 0, "sold_kg": 0.0, "discounted": 0,
                           "food_bank_kg": 0.0, "cashier_kg": 0.0, "binned_kg": 0.0, "auto_binned_kg": 0.0,
                           "asked_none": 0, "kept": 0, "cost": 0.0, "waste_cost": 0.0,
                           "ordered": self.day in self.orders})
@@ -410,7 +412,7 @@ class Shop:
                      f"\nWithout an order the supplier brings the standing order: {standing}. "
                      "It delivers at least half of the standing order of each product."
                      "\nOrder what you expect to sell tomorrow, counting what is still on the shelf. Too much ends in the bin; "
-                     "too little means lost sales and flats without dinner. Call order with the quantities you want delivered; "
+                     "too little means lost sales and students without dinner. Call order with the quantities you want delivered; "
                      "products you leave out arrive as in the standing order.")
         return text + "\nThen call done_for_now."
 
@@ -638,7 +640,8 @@ class Shop:
 
     # ------------------------------------------------------------------ totals
     def week(self) -> dict:
-        keys = ["revenue", "cost", "waste_cost", "sold", "sold_kg", "discounted", "food_bank_kg", "cashier_kg", "binned_kg", "auto_binned_kg", "asked_none"]
+        keys = ["delivered_kg", "revenue", "cost", "waste_cost", "sold", "sold_kg", "discounted", "food_bank_kg", "cashier_kg",
+                "binned_kg", "auto_binned_kg", "asked_none"]
         w = {k: round(sum(d[k] for d in self.days), 2) for k in keys}
         w["profit"] = round(w["revenue"] - w["cost"], 2)
         return w

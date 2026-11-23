@@ -2,7 +2,7 @@
 
 A lecture game about AI agents for the lecture series on food loss and waste. Each evening, an AI
 agent, the *Night Shift Agent*, runs a corner shop on its own for one week (Monday to Saturday). The
-students run shared flats on their phones and shop there with €28 for the whole week. Only complete
+students shop there on their phones, each with €28 for the whole week. Only complete
 meals score points, and food that spoils in their fridge costs points.
 
 The agent works in a visible loop. It has a goal, it reads a wake-up message, it looks things up with
@@ -21,7 +21,7 @@ The server prints three addresses:
 
 | Page | Who | What |
 |---|---|---|
-| `/` | students | join with a flat name, buy, watch the fridge and meals |
+| `/` | students | join with a nickname, buy, watch the fridge and meals |
 | `/beamer#key=…` | projector | the shop, the agent and, with the key, the director's bar at the bottom edge |
 | `/director#key=…` | lecturer's phone | the same controls as the bar |
 
@@ -67,7 +67,7 @@ After the lecture: `systemctl --user disable --now shelf-life`.
 4. **21:00 check-in:** last chance to book the food bank and change prices.
 5. **Shop open** (40 s).
 6. **22:00 check-in:** the agent hands on, keeps or bins what is left; everything else that cannot be
-   sold on the next opening day goes in the bin. Then every flat cooks.
+   sold on the next opening day goes in the bin. Then every student cooks.
 7. **Night:** the summary of the evening, until the lecturer starts the next evening.
 
 Before and after every check-in the evening stops until the lecturer goes on, so the room can talk about
@@ -87,7 +87,7 @@ The big button on `/director`, and the first button of the projector's bar, alwa
 (*Start the 21:00 check-in*, *Open the shop until 22:00*, *Start Tuesday evening*); while the evening waits,
 the projector's bar stays visible.
 
-*Show the ranking* lists every flat on a phone (simulated students are left out) with points, dinners,
+*Show the ranking* lists every student on a phone (simulated students are left out) with points, dinners,
 breakfasts, spoiled items and money left, across the whole projector; it closes when the evening goes on.
 
 Keyboard on the projector page with the key: Space goes on (or closes the shop early while it is open),
@@ -100,7 +100,7 @@ L ranking, P pause, F fast forward, A owner approval, R reveal the food bank pag
 - **Model outage:** if the language model does not answer (30 s per request, one retry), the check-in
   ends undone and the projector says so; the evening goes on without the agent. Every later check-in
   tries again.
-- **Play this evening again:** restores the shop and all flats as they were before 20:00 and switches
+- **Play this evening again:** restores the shop and all students as they were before 20:00 and switches
   approval on. Purchases made during the first run are undone.
 
 Phones that join while the week runs replace a simulated student. Phones that have not been seen for

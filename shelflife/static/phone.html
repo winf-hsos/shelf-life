@@ -33,6 +33,7 @@
   #status { margin-top: 8px; border-radius: 12px; padding: 9px 12px; font: 700 15px/1.35 var(--font); background: #1b2640; border: 2px solid #26324f; }
   #status.open { background: var(--ok); border-color: #2c6e3d; color: #fff; }
   #status.checkin { background: var(--agent); border-color: #1b4f8f; color: #fff; }
+  #status.paused { background: var(--lamp); border-color: #2b1d10; color: #2a1a05; font-size: 17px; }
   #status .timer { float: right; font: 900 16px/1.3 var(--display); font-variant-numeric: tabular-nums; }
   #status .agent { display: block; font-weight: 600; margin-top: 4px; opacity: .95; }
 
@@ -93,15 +94,18 @@
   .board div { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 2px dotted #d9ccb0; font-size: 16px; }
   .board div.me { font-weight: 900; color: var(--agent); }
   .rule { font-size: 15px; line-height: 1.45; }
+  .tour-hi { outline: 4px solid #ffd34d; outline-offset: 4px; border-radius: 12px; }
+  #head.tour-hi { outline-offset: -4px; }
+  html.demo { scrollbar-width: none; }
 </style>
 </head>
 <body>
 <main>
   <section id="join" hidden>
     <h1>Shelf Life</h1>
-    <p>You run a shared flat for one week and shop in a corner shop that an AI agent runs at night.</p>
-    <p class="muted">Choose a name for your flat. It appears on the projector.</p>
-    <input id="nameIn" maxlength="18" placeholder="e.g. Flat Hasenheide" autocomplete="off">
+    <p>For one week you shop for your dinner and breakfast in a corner shop that an AI agent runs at night.</p>
+    <p class="muted">Choose a nickname. It appears on the projector.</p>
+    <input id="nameIn" maxlength="18" placeholder="e.g. Pasta Pirate" autocomplete="off">
     <button class="btn" id="joinBtn">Join</button>
   </section>
 
@@ -118,7 +122,7 @@
     <div id="results"></div>
 
     <h2>Tonight's meals <small>cooked automatically at 22:00</small></h2>
-    <div class="meals">
+    <div class="meals" id="mealsBox">
       <div class="meal" id="dinner"><b>Dinner <i>+3</i></b><div class="slots"></div></div>
       <div class="meal" id="breakfast"><b>Breakfast <i>+1</i></b><div class="slots"></div></div>
     </div>
@@ -139,6 +143,7 @@ const $ = id => document.getElementById(id);
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                 set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 let pid = store.get("ct-pid"), me = null, timer = null, buying = false;
+const DEMO = new URLSearchParams(location.search).has("demo");  // the sample phone in the projector's guided tour
 const euro = x => "€" + x.toFixed(2);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const NAMES = {};
@@ -163,6 +168,7 @@ $("nameIn").onkeydown = e => { if (e.key === "Enter") join(); };
 function statusLine(v) {
   const p = v.phase;
   if (p === "lobby" || v.day === undefined) return ["", "Waiting for the week to start. Look at the projector."];
+  if (v.paused && p !== "week_over") return ["paused", "<b>⏸ Paused.</b> Look at the projector: the clock stops and the shop waits until the game goes on."];
   if (p === "morning") return ["", `<b>${v.day_name} morning.</b> The delivery arrives.`];
   if (p === "checkin") return ["checkin", `<b>${v.clock} · The Night Shift Agent is checking the shelf.</b> You cannot shop right now.` +
     (v.agent_line ? `<span class="agent">Latest: ${esc(v.agent_line)}</span>` : "")];
@@ -171,7 +177,7 @@ function statusLine(v) {
     return ["open", `<span class="timer">${s}s</span><b>${v.clock} · Shop open.</b> Buy now or wait for markdowns.` +
       (v.agent_line ? `<span class="agent">Latest: ${esc(v.agent_line)}</span>` : "")];
   }
-  if (p === "night") return ["", `<b>${v.day_name}, 22:00.</b> The shop is closed and your flat has cooked.`];
+  if (p === "night") return ["", `<b>${v.day_name}, 22:00.</b> The shop is closed and you have cooked.`];
   if (p === "week_over") return ["", "<b>The week is over.</b> Thanks for shopping!"];
   return ["", p];
 }
@@ -199,7 +205,8 @@ function render(v) {
 
   // shop tiles
   const open = v.phase === "open" && !v.paused;
-  $("shopNote").textContent = open ? "tap to buy one" : "opens at 20:00 and 21:00 after the agent's check-in";
+  $("shopNote").textContent = open ? "tap to buy one" : v.paused && v.phase === "open" ? "buying waits until the game goes on"
+    : "opens at 20:00 and 21:00 after the agent's check-in";
   const tiles = v.shelf.map(p => {
     NAMES[p.key] = p.name;
     const o = p.offer;
@@ -209,7 +216,7 @@ function render(v) {
       <div class="pic"><img src="/static/img/${p.key}.webp" alt=""></div>
       <div class="nm">${esc(p.name)}</div>${price}
       ${o ? `<span class="lab ${o.urgency}">${esc(o.label)}</span>` : ""}
-      <button data-k="${p.key}" ${can ? "" : "disabled"}>${!o ? "sold out" : !open ? "closed" : o.price > v.budget ? "too little money" : "Buy"}</button></div>`;
+      <button data-k="${p.key}" ${can ? "" : "disabled"}>${!o ? "sold out" : v.paused && v.phase === "open" ? "paused" : !open ? "closed" : o.price > v.budget ? "too little money" : "Buy"}</button></div>`;
   }).join("");
   if ($("shop").dataset.html !== tiles) { $("shop").innerHTML = tiles; $("shop").dataset.html = tiles; }
 
@@ -241,14 +248,14 @@ function render(v) {
   }
   if (v.board) {
     res += `<div class="result"><h3>Final ranking</h3><div class="board">${v.board.map(r => `<div class="${r.name === v.name ? "me" : ""}"><span>${r.rank}. ${esc(r.name)}</span><b>${r.points}</b></div>`).join("")}</div>
-      <p>This week: ${v.week.meals} dinners, ${v.week.breakfasts} breakfasts, ${v.week.spoiled} items spoiled.</p></div>`;
+      <p>This week: ${v.week.meals} ${v.week.meals === 1 ? "dinner" : "dinners"}, ${v.week.breakfasts} ${v.week.breakfasts === 1 ? "breakfast" : "breakfasts"}, ${v.week.spoiled} ${v.week.spoiled === 1 ? "item" : "items"} spoiled.</p></div>`;
   }
   if ($("results").dataset.html !== res) { $("results").innerHTML = res; $("results").dataset.html = res; }
 }
 
 $("shop").addEventListener("click", async e => {
   const b = e.target.closest("button[data-k]");
-  if (!b || b.disabled || buying) return;
+  if (!b || b.disabled || buying || DEMO) return;
   buying = true;
   const k = b.dataset.k, tile = $("t-" + k);
   try {
@@ -264,6 +271,18 @@ $("shop").addEventListener("click", async e => {
   buying = false;
 });
 
+// guided tour: the projector highlights one part of the sample phone and scrolls to it
+window.tourFocus = id => {
+  const el = $(id);
+  if (!el || !me) return false;
+  document.querySelectorAll(".tour-hi").forEach(x => x.classList.remove("tour-hi"));
+  el.classList.add("tour-hi");
+  const anchor = el.previousElementSibling && el.previousElementSibling.tagName === "H2" ? el.previousElementSibling : el;
+  const top = id === "head" ? 0 : anchor.getBoundingClientRect().top + scrollY - $("head").offsetHeight - 6;
+  scrollTo({ top, behavior: "smooth" });
+  return true;
+};
+
 async function poll() {
   clearTimeout(timer);
   try {
@@ -274,7 +293,8 @@ async function poll() {
   timer = setTimeout(poll, me && me.phase === "open" ? 800 : 1500);
 }
 
-if (pid) { $("game").hidden = false; poll(); } else { $("join").hidden = false; }
+if (DEMO) { document.documentElement.classList.add("demo"); $("game").hidden = false; fetch("/api/demo_phone", { cache: "no-store" }).then(r => r.json()).then(render); }
+else if (pid) { $("game").hidden = false; poll(); } else { $("join").hidden = false; }
 </script>
 </body>
 </html>

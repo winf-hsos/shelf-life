@@ -1,4 +1,4 @@
-"""Simulated students for tests without phones: each feeds a flat for the week on a budget."""
+"""Simulated students for tests without phones: each feeds themself for the week on a budget."""
 
 from __future__ import annotations
 

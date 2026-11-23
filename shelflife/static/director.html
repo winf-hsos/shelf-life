@@ -75,7 +75,7 @@
   </div>
 
   <button id="next"><b id="nextLabel">…</b><small id="nextHint"></small></button>
-  <button id="ranking" class="rank">Show the ranking<small>all flats on phones: points, meals, money left</small></button>
+  <button id="ranking" class="rank">Show the ranking<small>all students on phones: points, meals, money left</small></button>
   <div id="msg"></div>
 
   <div class="grid three" style="margin-top: 8px">
@@ -136,7 +136,7 @@ const $ = id => document.getElementById(id);
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 DAYS.forEach((d, i) => $("injection").add(new Option("Injection on " + d.slice(0, 3), i)));
 let S = null, nextAction = null;
-const TOUR_STOPS = 13;  // the length of TOUR in beamer.html
+const TOUR_STOPS = 16;  // the length of TOUR in beamer.html
 
 async function admin(action, body = {}) {
   const r = await fetch("/api/admin/" + action, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": KEY }, body: JSON.stringify(body) });
@@ -154,7 +154,7 @@ function situation(s) {
   if (W && W.kind === "night") return { now: "Closed for the night. The summary is on the projector.", label: W.label,
     hint: W.label.startsWith("Show") ? "The result of the whole week appears." : "The next morning's delivery arrives.", go: "continue" };
   switch (s.phase) {
-    case "lobby": return { now: `Waiting to start. ${s.players} phones have joined.`, label: "Start the week", hint: "Every phone that has joined becomes a flat.", go: "start" };
+    case "lobby": return { now: `Waiting to start. ${s.players} phones have joined.`, label: "Start the week", hint: "Every phone that has joined takes part.", go: "start" };
     case "morning": return { now: "The morning delivery arrives.", label: "Morning delivery …", disabled: true };
     case "checkin": return { now: `The agent is checking in (${s.clock}).`, label: "The agent is working …", hint: "Wait until it is done for now.", disabled: true };
     case "open": return { now: `The shop is open, ${Math.ceil(s.time_left)} s left.`, label: "Close the shop now", hint: "Ends this hour early.", go: "skip", soft: true };
@@ -186,7 +186,7 @@ function render(s) {
   const ranked = s.control.overlay === "ranking";
   $("ranking").classList.toggle("on", ranked);
   $("ranking").disabled = s.phase === "lobby";
-  $("ranking").innerHTML = ranked ? "Hide the ranking<small>back to the shop</small>" : "Show the ranking<small>all flats on phones: points, meals, money left</small>";
+  $("ranking").innerHTML = ranked ? "Hide the ranking<small>back to the shop</small>" : "Show the ranking<small>all students on phones: points, meals, money left</small>";
   $("holds").classList.toggle("on", s.holds);
   $("holds").innerHTML = `Stop before and after each check-in<small>${s.holds ? "on: the big button moves the evening on" : "off: the evening runs by itself"}</small>`;
   const stop = Number.isInteger(s.control.tour) ? s.control.tour : -1;

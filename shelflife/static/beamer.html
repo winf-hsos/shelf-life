@@ -233,6 +233,10 @@
               border: 3px solid #050a14; border-radius: 16px; padding: 16px 20px 18px; box-shadow: 0 10px 0 rgba(0,0,0,.35);
               transition: left .55s ease, top .55s ease; }
   #tourSpot.on, #tourCard.on { display: block; }
+  #tourPhone { position: fixed; z-index: 202; display: none; left: 24vw; top: 5vh; height: 90vh; width: 44vh; overflow: hidden;
+               border: 12px solid #050a14; border-radius: 40px; background: #0d1424; box-shadow: 0 10px 0 rgba(0,0,0,.35); }
+  #tourPhone.on { display: block; }
+  #tourPhone iframe { border: 0; transform-origin: 0 0; display: block; pointer-events: none; }
   #tourSpot.story { outline: none; }
   #tourCard.story { width: min(54vw, 940px); padding: 30px 40px 34px; }
   #tourCard.story b { font-size: 46px; margin: 8px 0 14px; }
@@ -313,10 +317,53 @@
   #flags span { font: 800 12px/1 var(--font); padding: 5px 8px; border-radius: 99px; background: #1b2640; color: #9fb0cc; }
   #flags span.lock { background: var(--due); color: #fff; }
 
+  /* ---------- pause: a frame around the screen and a banner, nothing covered ---------- */
+  #pauseBanner { position: fixed; left: 50%; top: .6vh; transform: translateX(-50%); z-index: 150; display: none; white-space: nowrap;
+                 padding: 1vh 2.4vw; background: var(--lamp); color: #2a1a05; border: 4px solid #2b1d10; border-radius: 16px;
+                 font: 900 4.2vh/1 var(--display); box-shadow: 0 6px 0 rgba(0,0,0,.35); pointer-events: none; }
+  #pauseBanner small { font: 800 2.2vh/1 var(--font); margin-left: 1.2vw; vertical-align: .5vh; }
+  body.paused #pauseBanner { display: block; }
+  body.paused::after { content: ""; position: fixed; inset: 0; border: 10px solid var(--lamp); pointer-events: none; z-index: 149; }
+
+  /* ---------- a tool call in large print, with its neighbours ---------- */
+  #zoom { position: fixed; inset: 0; z-index: 190; display: none; align-items: center; justify-content: center; gap: 2vw; background: rgba(4, 8, 16, .86); }
+  #zoom.on { display: flex; }
+  #zStack { width: min(68vw, 1300px); display: flex; flex-direction: column; gap: 1.6vh; }
+  #zoom .zs { background: #18294a; border: 2px solid #26406b; border-radius: 16px; padding: 1.2vh 1.4vw; color: #b9c6dd; }
+  #zoom .zs.side { opacity: .5; cursor: pointer; max-height: 9vh; overflow: hidden; font-size: 1.7vh; transition: opacity .2s; }
+  #zoom .zs.side:hover { opacity: .85; }
+  #zoom .zs.side .call { font: 700 2vh/1.3 ui-monospace, Consolas, monospace; color: #cfe3ff; }
+  #zoom .zs.side .res { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #zoom .zs.side.none { visibility: hidden; }
+  #zoom .zs.cur { border: 3px solid #4b8fe0; max-height: 66vh; overflow-y: auto; }
+  #zoom .zs.cur.act { border-color: var(--lamp); }
+  #zoom .zs.cur.bad { border-color: var(--due); background: #3a1d24; }
+  #zoom .cur .zhead { font: 800 1.7vh/1 var(--font); color: #7f93b7; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 1vh; }
+  #zoom .cur .call { font: 700 3.1vh/1.3 ui-monospace, Consolas, monospace; color: #cfe3ff; }
+  #zoom .cur .call b { color: #fff; }
+  #zoom .cur .why { font: 600 italic 3vh/1.35 var(--font); color: #e8f1ff; margin-top: 1vh; }
+  #zoom .cur .res { font: 500 2.6vh/1.45 var(--font); color: #dbe5f5; margin-top: 1.2vh; white-space: pre-wrap; }
+  #zoom .zbtn { font: 900 6vh/1 var(--display); width: 7vh; height: 12vh; border-radius: 14px; border: 2px solid #3a4d73; background: #1b2b4a; color: #e7eefc; cursor: pointer; }
+  #zoom .zbtn:disabled { opacity: .25; cursor: default; }
+  #zCount { position: absolute; bottom: 3vh; left: 0; right: 0; text-align: center; font: 700 1.8vh/1 var(--font); color: #7f93b7; }
+
+  /* ---------- week summary: where every kilo went ---------- */
+  .flow { display: flex; height: calc(var(--u) * 3.2); border-radius: calc(var(--u) * .8); overflow: hidden; border: 3px solid #2b1d10; margin: calc(var(--u) * .6) 0 calc(var(--u) * 1.2); }
+  .flow i { display: flex; align-items: center; justify-content: center; color: #fff; font: 900 calc(var(--u) * 1.2)/1 var(--display); font-style: normal; overflow: hidden; white-space: nowrap; min-width: 0; }
+  .shares { display: grid; grid-template-columns: repeat(3, 1fr); gap: calc(var(--u) * .9); }
+  .shares div { border-radius: calc(var(--u) * .8); padding: calc(var(--u) * .7) calc(var(--u) * .9); color: #fff; font-size: calc(var(--u) * 1.15); line-height: 1.25; }
+  .shares b { display: block; font: 900 calc(var(--u) * 2.8)/1.05 var(--display); }
+  .shares span { opacity: .9; }
+  .wtotal { font-size: calc(var(--u) * 1.3); }
+  .wtotal b { font-family: var(--display); }
+  .wsum { display: flex; gap: calc(var(--u) * 2.4); font-size: calc(var(--u) * 1.3); margin-top: calc(var(--u) * .9); }
+  .wsum b { font: 900 calc(var(--u) * 1.6)/1 var(--display); }
+
   /* ---------- director bar (only with the key) ---------- */
   #director { position: fixed; left: 0; right: 0; bottom: 0; z-index: 200; display: none; gap: 6px; align-items: center; flex-wrap: wrap;
               padding: 6px 10px; background: rgba(5, 10, 20, .94); border-top: 2px solid #26324f; transform: translateY(calc(100% - 6px)); transition: transform .25s; }
   body.admin #director { display: flex; }
+  body.nobar #director { display: none; }
   #director:hover, #director.pin { transform: none; }
   #director button, #director select { font: 700 13px/1 var(--font); padding: 7px 10px; border-radius: 8px; border: 1px solid #3a4d73; background: #1b2b4a; color: #e7eefc; cursor: pointer; }
   #director button.on { background: var(--agent); border-color: #bfe0ff; }
@@ -385,7 +432,7 @@
               <div class="row"><span>Customers who found an empty shelf</span><b id="nMissed"></b></div>
             </div>
             <div>
-              <h3>The flats</h3>
+              <h3>The students</h3>
               <div class="row"><span>Complete dinners</span><b id="nDinners"></b></div>
               <div class="row"><span>Breakfasts</span><b id="nBreakfasts"></b></div>
               <div class="row"><span>Spoiled in the fridge</span><b id="nSpoiled"></b></div>
@@ -396,8 +443,8 @@
         </div></div>
         <div class="overlay" id="weekend"><div class="card">
           <h2>The week in the corner shop</h2>
-          <div class="bins" id="wBins"></div>
-          <h3>Best-fed flats</h3>
+          <div id="wFlow"></div>
+          <h3>Best-fed students</h3>
           <div class="board" id="wBoard"></div>
         </div></div>
         <div class="overlay" id="ranking"><div class="card">
@@ -421,13 +468,13 @@
       <div id="lobby">
         <div class="qr"><img id="qr" alt="QR code to join"><div id="joinUrl"></div></div>
         <div>
-          <h3>Scan to join as a shared flat</h3>
+          <h3>Scan to join and shop</h3>
           <ul>
             <li><b>€28</b> for the whole week, Monday to Saturday.</li>
             <li>A complete dinner scores <b>+3</b> (main, side, something fresh), breakfast <b>+1</b>.</li>
             <li>Whatever spoils in your fridge costs <b>−1</b>.</li>
           </ul>
-          <p class="count" id="joined">0 flats have joined</p>
+          <p class="count" id="joined">0 students have joined</p>
         </div>
       </div>
       <div id="flags"></div>
@@ -436,7 +483,15 @@
 </div>
 
 <div id="tourSpot"></div>
+<div id="tourPhone"><iframe title="Sample phone"></iframe></div>
 <div id="tourCard"><small id="tourStep"></small><b id="tourTitle"></b><p id="tourText"></p></div>
+<div id="pauseBanner">⏸ Paused<small>the clock stops and the shop waits</small></div>
+<div id="zoom">
+  <button class="zbtn" id="zPrev" title="previous step (←)">‹</button>
+  <div id="zStack"><div class="zs side" id="zBefore"></div><div class="zs cur" id="zCur"></div><div class="zs side" id="zAfter"></div></div>
+  <button class="zbtn" id="zNext" title="next step (→)">›</button>
+  <div id="zCount"></div>
+</div>
 <div id="director">
   <button id="dContinue" class="next" disabled>Next</button>
   <span class="sep"></span>
@@ -449,15 +504,15 @@
   <button id="dFast">Fast</button>
   <span class="sep"></span>
   <button id="dApproval">Owner approval</button>
-  <select id="dInjection"><option value="">No injection</option></select>
   <button id="dReveal">Reveal the page</button>
   <button id="dReplay" class="warn">Play this evening again</button>
   <span class="sep"></span>
   <button id="dRanking">Ranking (L)</button>
   <button id="dBoard">Week summary</button>
   <button id="dReset" class="warn">Reset</button>
+  <button id="dHide">Hide bar (H)</button>
   <span class="msg" id="dMsg"></span>
-  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · D pin bar</span>
+  <span class="keys">Space go on · L ranking · P pause · F fast · A approval · R reveal · D pin bar · H hide bar</span>
 </div>
 
 <script>
@@ -625,7 +680,7 @@ function playEvents(events) {
       stamp("REJECTED", false);
     }
   }
-  // group a flat's purchases into one visit
+  // group a student's purchases into one visit
   const visits = new Map();
   for (const e of buys) {
     const k = e.who || ("regular" + Math.random());
@@ -720,9 +775,46 @@ function stepCard(s) {
   d.className = "step" + (ACTIONS.includes(s.name) ? " act" : "") + (bad ? " bad" : "");
   const why = s.args && s.args.why ? `<div class="res" style="color:#e8f1ff;font-style:italic">“${esc(s.args.why)}”</div>` : "";
   d.innerHTML = `<span class="ck">${["20:00", "21:00", "22:00"][s.checkin]}</span><div class="call">${callText(s)}</div>${why}<div class="res">${esc(s.result || "")}${s.hidden ? "\n\n" + esc(s.hidden) : ""}</div>`;
-  d.onclick = () => d.classList.toggle("open");
+  d.onclick = () => openZoom(allSteps.indexOf(s));
   return d;
 }
+
+/* ---------- a tool call in large print: arrows or a click on a neighbour page through the evening ---------- */
+let allSteps = [], zoomAt = -1;
+function stepParts(s) {
+  const bad = s.name === "model_error" || s.name === "model_down" || (ACTIONS.includes(s.name) || s.name === "send_to_food_bank") && /rejected|refuses|not booked|not accepted|cannot take|Unknown|Wrong|There is no|fully booked|Not in the catalogue|takes orders after|No delivery to order/i.test(s.result || "");
+  return { bad, act: ACTIONS.includes(s.name), why: s.args && s.args.why ? `“${esc(s.args.why)}”` : "",
+           res: esc(s.result || "") + (s.hidden ? "\n\n" + esc(s.hidden) : "") };
+}
+function zoomSide(el, s, at) {
+  el.classList.toggle("none", !s);
+  el.onclick = s ? () => openZoom(at) : null;
+  el.innerHTML = s ? `<div class="call">${callText(s)}</div><div class="res">${stepParts(s).res.split("\n")[0]}</div>` : "";
+}
+function openZoom(i) {
+  if (i < 0 || i >= allSteps.length) return;
+  zoomAt = i;
+  const s = allSteps[i], p = stepParts(s), cur = $("zCur");
+  cur.className = "zs cur" + (p.act ? " act" : "") + (p.bad ? " bad" : "");
+  cur.innerHTML = `<div class="zhead">${DAYS_LONG[s.day] || ""} · check-in ${["20:00", "21:00", "22:00"][s.checkin] || ""}</div>`
+    + `<div class="call">${callText(s)}</div>${p.why ? `<div class="why">${p.why}</div>` : ""}<div class="res">${p.res}</div>`;
+  cur.scrollTop = 0;
+  zoomSide($("zBefore"), allSteps[i - 1], i - 1);
+  zoomSide($("zAfter"), allSteps[i + 1], i + 1);
+  $("zPrev").disabled = i === 0; $("zNext").disabled = i === allSteps.length - 1;
+  $("zCount").textContent = `step ${i + 1} of ${allSteps.length} · ← → to page · Esc or a click outside to close`;
+  $("zoom").classList.add("on");
+}
+function closeZoom() { $("zoom").classList.remove("on"); zoomAt = -1; }
+$("zPrev").onclick = () => openZoom(zoomAt - 1);
+$("zNext").onclick = () => openZoom(zoomAt + 1);
+$("zoom").onclick = e => { if (e.target.id === "zoom" || e.target.id === "zStack") closeZoom(); };
+addEventListener("keydown", e => {
+  if (zoomAt < 0) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowUp") { e.preventDefault(); openZoom(zoomAt - 1); }
+  else if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); openZoom(zoomAt + 1); }
+  else if (e.key === "Escape") { closeZoom(); e.stopImmediatePropagation(); }
+}, true);
 function renderSteps(steps, animate) {
   const box = $("steps");
   let fresh = [];
@@ -735,8 +827,10 @@ function renderSteps(steps, animate) {
   if (!fresh.length) return;
   for (const s of fresh) {
     if (s.name === "wake") { const sep = document.createElement("div"); sep.className = "step sep"; sep.textContent = `Check-in ${["20:00", "21:00", "22:00 (closing)"][s.checkin]}`; box.appendChild(sep); }
+    allSteps.push(s);
     box.appendChild(stepCard(s));
   }
+  if (zoomAt >= 0) openZoom(zoomAt);  // the neighbours and the count follow new steps
   playStep(fresh[fresh.length - 1], animate);
   box.scrollTop = box.scrollHeight;
 }
@@ -745,12 +839,13 @@ function renderSteps(steps, animate) {
 function render(v) {
   const reset = v.epoch !== epoch;
   if (reset) {
-    epoch = v.epoch; seenSteps = new Set(); $("steps").innerHTML = ""; since = v.n_events || 0; lastNoteText = null;
+    epoch = v.epoch; seenSteps = new Set(); $("steps").innerHTML = ""; allSteps = []; closeZoom(); since = v.n_events || 0; lastNoteText = null;
     $("van").classList.remove("here"); document.querySelectorAll(".walker,.flyer").forEach(e => e.remove()); walkers = 0;
   }
   V = v;
   const phase = v.phase;
-  document.body.className = [phase, KEY ? "admin" : "", v.control.reveal ? "reveal" : "", v.busy ? "checkin" : ""].join(" ");
+  document.body.className = [phase, KEY ? "admin" : "", v.control.reveal ? "reveal" : "", v.busy ? "checkin" : "",
+                              v.paused && !["lobby", "week_over"].includes(phase) ? "paused" : "", barHidden ? "nobar" : ""].join(" ");
   if (!v.busy && phase === "checkin") document.body.classList.add("checkin");
   $("goalText").textContent = v.goal;
   if (!$("tools").children.length) $("tools").innerHTML = v.tools.map(t => `<span data-name="${t.name}" title="${esc(t.description)}">${t.name}</span>`).join("");
@@ -759,7 +854,7 @@ function render(v) {
   $("week").innerHTML = v.days.map((d, i) => `<div class="day ${d.state}"><b>${d.name.slice(0, 3)}</b><span>${d.note || "&nbsp;"}</span></div>`).join("");
   $("wallclock").textContent = v.clock;
   const ph = $("phase");
-  const label = { lobby: "Waiting for flats to join", morning: "Morning delivery", checkin: "Night Shift Agent check-in", open: "Shop open", night: "Closed for the night", week_over: "The week is over" }[phase] || phase;
+  const label = { lobby: "Waiting for students to join", morning: "Morning delivery", checkin: "Night Shift Agent check-in", open: "Shop open", night: "Closed for the night", week_over: "The week is over" }[phase] || phase;
   ph.className = phase === "open" ? "open" : phase === "checkin" ? "checkin" : "";
   const W = v.waiting;
   const shown = W && W.kind === "before" ? `Check-in at ${v.clock} next` : W && W.kind === "after" ? "Check-in done · the shop opens next" : label;
@@ -807,7 +902,7 @@ function render(v) {
   const flags = [];
   flags.push(`<span>${v.mode === "llm" ? "language model" : "fixed rule"}</span>`);
   if (v.approval) flags.push(`<span class="lock">owner approval on</span>`);
-  flags.push(`<span>${v.players} flats on phones</span>`);
+  flags.push(`<span>${v.players} students on phones</span>`);
   if (v.fast) flags.push(`<span>fast forward</span>`);
   $("flags").innerHTML = flags.join("");
 
@@ -882,18 +977,29 @@ function renderNight(v) {
 }
 function renderWeek(v) {
   const w = v.week_end;
-  $("wBins").innerHTML = `<div style="background:var(--bin)">Thrown away by the shop<b>${w.shop_bin_kg} kg</b></div>
-    <div style="background:#b07a3a">Spoiled in ${w.households} flats<b>${w.home_bin_kg} kg</b></div>
-    <div style="background:var(--bank)">Saved by the agent<b>${w.saved_kg} kg</b><span>profit ${euro(w.profit)}</span></div>`;
+  const all = w.delivered_kg || 1, pct = kg => Math.round(100 * kg / all);
+  const parts = [
+    ["Bought and eaten", w.eaten_kg, "var(--ok)", "by the students and the regulars"],
+    ["Saved: food bank", w.food_bank_kg, "var(--bank)", "picked up by the van"],
+    ["Saved: cashier", w.cashier_kg, "#c98a1b", "taken home at closing"],
+    ["Binned by the shop", w.shop_bin_kg, "var(--due)", "thrown away at 22:00"],
+    ["Spoiled in fridges", w.home_bin_kg, "#b07a3a", `in ${w.households} fridges at home`],
+    ["Still on the shelf", w.shelf_kg, "#8a7d66", "keeps beyond Saturday"],
+  ];
+  $("wFlow").innerHTML = `<div class="wtotal">All the food delivered this week: <b>${w.delivered_kg} kg = 100 %</b></div>`
+    + `<div class="flow">${parts.map(([, kg, c]) => `<i style="background:${c};flex:${kg}">${pct(kg) >= 4 ? pct(kg) + " %" : ""}</i>`).join("")}</div>`
+    + `<div class="shares">${parts.map(([t, kg, c, sub]) => `<div style="background:${c}">${t}<b>${pct(kg)} %</b><span>${kg} kg · ${sub}</span></div>`).join("")}</div>`
+    + `<div class="wsum"><span>Saved in total <b>${pct(w.saved_kg)} %</b></span><span>Wasted in total <b>${pct(w.shop_bin_kg + w.home_bin_kg)} %</b></span>`
+    + `<span>Profit <b>${euro(w.profit)}</b></span></div>`;
   $("wBoard").innerHTML = (v.board || []).map(r => `<div><span>${r.rank}. ${esc(r.name)}</span><b>${r.points} pts</b></div>`).join("") || "<p>No phones joined this week.</p>";
 }
 function renderRanking(v) {
   const last = v.nights && v.nights.length ? v.nights[v.nights.length - 1].day : null;
   const rows = v.ranking;
-  $("rTitle").innerHTML = (last ? `Ranking after ${last}` : "Ranking") + `<small>${rows.length} ${rows.length === 1 ? "flat" : "flats"} on phones</small>`;
+  $("rTitle").innerHTML = (last ? `Ranking after ${last}` : "Ranking") + `<small>${rows.length} ${rows.length === 1 ? "student" : "students"} on phones</small>`;
   if (!rows.length) { $("rTable").innerHTML = "<p>No phones have joined yet.</p>"; return; }
   const perCol = rows.length > 14 ? Math.ceil(rows.length / 2) : rows.length;
-  const head = `<div class="rrow head"><span>#</span><span>Flat</span><span>Points</span><span>Dinners</span><span>Breakfasts</span><span>Spoiled</span><span>Money left</span></div>`;
+  const head = `<div class="rrow head"><span>#</span><span>Name</span><span>Points</span><span>Dinners</span><span>Breakfasts</span><span>Spoiled</span><span>Money left</span></div>`;
   $("rTable").style.gridTemplateRows = `repeat(${perCol + 1}, auto)`;
   const cols = [rows.slice(0, perCol), rows.slice(perCol)].filter(c => c.length);
   $("rTable").innerHTML = cols.map(c => head + c.map(r => `<div class="rrow${r.rank === 1 ? " top" : ""}"><span>${r.rank}.</span><span class="nm">${esc(r.name)}</span>`
@@ -904,9 +1010,9 @@ function renderRanking(v) {
 // a stop without targets ("at: []") is a story card in the middle of the dimmed screen
 const TOUR = [
   { at: [], title: "The shop around the corner",
-    text: "Just around the corner from your university there is a small shop that stays open until 10 pm, the place where shared flats buy their dinner after a late lecture. Its owner can no longer pay for a night shift, so from this Monday an AI agent runs the evenings on its own." },
+    text: "Just around the corner from your university there is a small shop that stays open until 10 pm, the place where students buy their dinner after a late lecture. Its owner can no longer pay for a night shift, so from this Monday an AI agent runs the evenings on its own." },
   { at: [], title: "Your week",
-    text: "You are one of the shared flats that shop there. From Monday to Saturday you have €28 to put dinner and breakfast on the table, while the agent decides every evening what to mark down, what to give away and what ends up in the bin." },
+    text: "You are one of the students who shop there. From Monday to Saturday you have €28 for your dinners and breakfasts, while the agent decides every evening what to mark down, what to give away and what ends up in the bin." },
   { at: ["#scene"], title: "The corner shop",
     text: "This is the shop from the inside. It opens every evening from 8 to 10 pm, and everything that happens in it this week plays out here." },
   { at: ["#shelf"], title: "The shelf",
@@ -916,25 +1022,34 @@ const TOUR = [
   { at: ["#week"], title: "Six evenings",
     text: "The week runs from Monday to Saturday with a delivery every morning; Wednesday brings a big one, Friday is the busiest evening, and Sunday the shop is closed." },
   { at: ["#bin", "#crate", "#basket"], title: "Where leftovers go",
-    text: "At 10 pm the agent decides about everything that will not keep: the food bank van takes up to 15 kg if it was booked by 9 pm, the cashier may take five items home, and the rest goes in the bin." },
+    text: "At 10 pm the agent decides what happens to everything that cannot be sold tomorrow: the food bank van takes up to 15 kg if it was booked by 9 pm, the cashier may take five items home, and the rest goes in the bin." },
   { at: ["#money"], title: "Profit",
     text: "Up here is the profit of tonight and of the whole week, while the till on the counter counts tonight's takings. Every item costs the shop half its shelf price." },
   { at: ["#goal", "#who"], title: "The Night Shift Agent",
     text: "This is the AI agent. It has one goal, to make good money and waste as little food as possible, and it checks in at 8, 9 and 10 pm." },
   { at: ["#tools"], title: "Its tools",
     text: "It can act only through these tools: look at the shelf, read the house rules, mark down, book the food bank, hand on, bin and order tomorrow's delivery. The tool in use lights up." },
-  { at: ["#lobby"], title: "Your phone",
-    text: "During the evening the agent's steps and reasons appear here. Right now this is where you join: scan the code and give your shared flat a name." },
-  { at: ["#lobby"], title: "How your flat scores",
-    text: "A dinner needs a main (minced beef, sushi or eggs), a side (bread rolls or pasta) and something fresh (salad or strawberries) and scores 3 points; breakfast is yoghurt or milk with rolls or strawberries for 1 point. At 10 pm your flat cooks with what expires first, and whatever spoils in your fridge costs a point." },
+  { at: ["#lobby"], title: "Join with your phone",
+    text: "Right now this is where you join: scan the code and choose a nickname, which is how the room will see you. During the evening the agent's steps and reasons appear in this panel." },
+  // "phone" stops show the student page with sample data in a frame and highlight one part of it
+  { phone: "head", title: "Your phone",
+    text: "This is what your phone shows during the evening: your nickname, the clock, the money left for the week and your points with your place in the ranking. Below, a timer counts down while the shop is open, and the latest line from the agent tells you about markdowns." },
+  { phone: "mealsBox", title: "Tonight's meals",
+    text: "A dinner needs a main (minced beef, sushi or eggs), a side (bread rolls or pasta) and something fresh (salad or strawberries) and scores 3 points; breakfast is yoghurt or milk with rolls or strawberries for 1 point. A filled slot means you have it, so this dinner still lacks something fresh." },
+  { phone: "shop", title: "Shopping",
+    text: "Every product shows its price, its date and how many are left, and a markdown appears with the old price struck through. Tap Buy while the shop is open; you can wait for a markdown, but then someone else may get the last pack first." },
+  { phone: "fridge", title: "Your fridge",
+    text: "What you buy waits here, sorted by when it must be eaten. At 10 pm you cook automatically with whatever expires first, and anything that passes its date in your fridge spoils and costs a point." },
   { at: ["#ticker"], title: "Who bought what",
-    text: "Every purchase from your phones shows up down here with the name of your flat, so the whole room sees who shops when." },
+    text: "Every purchase from your phones shows up down here with your nickname, so the whole room sees who shops when." },
 ];
 function renderTour(stop) {
   const on = Number.isInteger(stop) && stop >= 0 && stop < TOUR.length;
   $("tourSpot").classList.toggle("on", on); $("tourCard").classList.toggle("on", on);
+  const t = on ? TOUR[stop] : null;
+  tourPhone(t && t.phone);
   if (!on) return;
-  const t = TOUR[stop], story = !t.at.length;
+  const story = !t.phone && !t.at.length;
   $("tourSpot").classList.toggle("story", story); $("tourCard").classList.toggle("story", story);
   $("tourStep").textContent = `${stop + 1} of ${TOUR.length}`;
   $("tourTitle").textContent = t.title; $("tourText").textContent = t.text;
@@ -944,7 +1059,7 @@ function renderTour(stop) {
     card.style.left = (innerWidth - card.offsetWidth) / 2 + "px"; card.style.top = (innerHeight - card.offsetHeight) / 2 + "px";
     return;
   }
-  const rects = t.at.map(sel => document.querySelector(sel)).filter(el => el && el.offsetParent !== null).map(el => el.getBoundingClientRect());
+  const rects = (t.phone ? ["#tourPhone"] : t.at).map(sel => document.querySelector(sel)).filter(el => el && el.getClientRects().length).map(el => el.getBoundingClientRect());
   if (!rects.length) return;
   const pad = 10;
   const r = { left: Math.min(...rects.map(x => x.left)) - pad, top: Math.min(...rects.map(x => x.top)) - pad,
@@ -962,6 +1077,17 @@ function renderTour(stop) {
   const [x, y] = spots.find(s => s[2]) || [(W - cw) / 2, H - ch - 24];
   card.style.left = x + "px"; card.style.top = y + "px";
 }
+// the sample phone: the real student page in demo mode, scaled into a phone frame
+function tourPhone(part) {
+  const box = $("tourPhone"), frame = box.querySelector("iframe");
+  box.classList.toggle("on", !!part);
+  if (!part) return;
+  if (!frame.src) frame.src = "/?demo";
+  const scale = box.clientWidth / 390;
+  Object.assign(frame.style, { width: "390px", height: box.clientHeight / scale + "px", transform: `scale(${scale})` });
+  const focus = () => frame.contentWindow && frame.contentWindow.tourFocus && frame.contentWindow.tourFocus(part);
+  if (!focus()) frame.onload = () => setTimeout(focus, 300);
+}
 function tourGo(delta) {
   const now = Number.isInteger(V.control.tour) ? V.control.tour : -1;
   const next = now + delta;
@@ -971,10 +1097,17 @@ function tourGo(delta) {
 function renderLobby(v) {
   const url = v.control.join_url || location.origin + "/";
   if ($("joinUrl").textContent !== url) { $("joinUrl").textContent = url; $("qr").src = "/api/qr.svg?u=" + encodeURIComponent(url); }
-  $("joined").textContent = v.players === 1 ? "1 flat has joined" : `${v.players} flats have joined`;
+  $("joined").textContent = v.players === 1 ? "1 student has joined" : `${v.players} students have joined`;
 }
 
 /* ---------- director ---------- */
+// H hides the director bar completely (and brings it back); the choice stays in this browser
+let barHidden = (() => { try { return localStorage.getItem("shelflife-bar") === "hidden"; } catch (e) { return false; } })();
+function toggleBar() {
+  barHidden = !barHidden;
+  try { localStorage.setItem("shelflife-bar", barHidden ? "hidden" : "shown"); } catch (e) {}
+  document.body.classList.toggle("nobar", barHidden);
+}
 async function admin(action, body = {}) {
   const r = await fetch("/api/admin/" + action, { method: "POST", headers: { "Content-Type": "application/json", "X-Admin-Key": KEY }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
@@ -983,9 +1116,6 @@ async function admin(action, body = {}) {
 }
 function renderDirector(v) {
   if (!KEY) return;
-  const sel = $("dInjection");
-  if (sel.options.length === 1) DAYS_LONG.forEach((d, i) => sel.add(new Option("Injection on " + d, i)));
-  if (document.activeElement !== sel) sel.value = v.injection_day === null || v.injection_day === undefined ? "" : String(v.injection_day);
   if (document.activeElement !== $("dMode")) $("dMode").value = v.mode;
   $("dPause").classList.toggle("on", v.paused);
   $("dFast").classList.toggle("on", v.fast);
@@ -1007,7 +1137,7 @@ if (KEY) {
   $("dContinue").onclick = () => admin("continue");
   $("dFast").onclick = () => admin("fast", { on: !V.fast });
   $("dApproval").onclick = () => admin("approval", { on: !V.approval });
-  $("dInjection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
+  $("dHide").onclick = () => toggleBar();
   $("dReveal").onclick = () => admin("control", { reveal: !V.control.reveal });
   $("dReplay").onclick = () => confirm("Play this evening again from 20:00, with owner approval? Purchases of this evening are undone.") && admin("replay");
   $("dBoard").onclick = () => admin("control", { overlay: V.control.overlay === "week" ? null : "week" });
@@ -1024,6 +1154,7 @@ if (KEY) {
     if (k === "a") admin("approval", { on: !V.approval });
     if (k === "r") admin("control", { reveal: !V.control.reveal });
     if (k === "d") $("director").classList.toggle("pin");
+    if (k === "h") toggleBar();
     if (k === "l") admin("control", { overlay: V.control.overlay === "ranking" ? null : "ranking" });
     if (k === "t") tourGo(e.shiftKey ? -1 : 1);
     if (e.key === "Escape" && Number.isInteger(V.control.tour)) admin("control", { tour: null });
