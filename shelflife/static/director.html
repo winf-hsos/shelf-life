@@ -145,7 +145,7 @@ function forgetKey() { try { localStorage.removeItem("shelflife-key"); } catch (
 const $ = id => document.getElementById(id);
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 DAYS.forEach((d, i) => $("injection").add(new Option("Injection on " + d.slice(0, 3), i)));
-let S = null, nextAction = null;
+let S = null, nextAction = null, modelTrying = null;  // modelTrying: a model the server is trying out now
 const TOUR_STOPS = 16;  // the length of TOUR in beamer.html
 
 async function admin(action, body = {}) {
@@ -216,8 +216,9 @@ function render(s) {
     $("model").dataset.sig = modelSig;
     $("model").innerHTML = (s.models || []).map(m => `<option value="${m}"${bad[m] ? " disabled" : ""}>${m}${bad[m] ? " (not available)" : ""}</option>`).join("");
   }
-  $("modelNote").textContent = Object.values(bad).join(" ");
-  if (document.activeElement !== $("model")) $("model").value = s.model;
+  $("modelNote").textContent = modelTrying ? `Trying ${modelTrying} …` : Object.values(bad).join(" ");
+  // while a new model is being tried (one or two seconds), the old one would otherwise flash back here
+  if (document.activeElement !== $("model") && !modelTrying) $("model").value = s.model;
   const p = s.pending;
   $("pending").style.display = p ? "block" : "none";
   if (p) {
@@ -246,7 +247,12 @@ $("approval").onclick = () => admin("approval", { on: !S.approval });
 $("injection").onchange = e => admin("injection", { day: e.target.value === "" ? null : +e.target.value });
 $("replay").onclick = () => confirm("Play this evening again from 20:00 with owner approval? Purchases of this evening are undone.") && admin("replay");
 $("mode").onchange = e => admin("settings", { mode: e.target.value });
-$("model").onchange = e => { e.target.blur(); admin("settings", { model: e.target.value }); };
+$("model").onchange = async e => {
+  e.target.blur();
+  modelTrying = e.target.value; $("modelNote").textContent = `Trying ${modelTrying} …`;
+  try { await admin("settings", { model: modelTrying }); } finally { modelTrying = null; }
+  if (S) render(S);
+};
 $("start").onclick = () => confirm("Start a new week? The current one is lost.") && admin("start_week", { mode: $("mode").value });
 $("ranking").onclick = () => admin("control", { overlay: S.control.overlay === "ranking" ? null : "ranking" });
 $("board").onclick = () => admin("control", { overlay: S.control.overlay === "week" ? null : "week" });
