@@ -1,5 +1,6 @@
 /* Shelf Life sound: effects and background music, synthesised in the browser with Web Audio.
- * No audio files and no network: everything is made from oscillators and filtered noise.
+ * Everything is made from oscillators and filtered noise, except the students' murmur, a recorded loop
+ * (static/audio/murmur.mp3, made by scripts/make_murmur.py) that loads from this server.
  * Only the director's projector page plays sound (see beamer.html); phones stay silent.
  *
  *   Sound.fx("bin")          one effect
@@ -26,6 +27,7 @@ const Sound = (() => {
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    loadMurmur();
     return true;
   }
   // browsers start audio only after a click or a key press on the page
@@ -68,64 +70,39 @@ const Sound = (() => {
   const bell = (f, t, gain = 0.18, dur = 1.2) => {  // a small shop bell: a few inharmonic partials
     [[1, 1], [2.76, 0.45], [5.4, 0.2], [8.9, 0.08]].forEach(([m, k]) => tone(f * m, t, dur / Math.sqrt(m), { gain: gain * k, type: "sine" }));
   };
-  // students talking: synthetic voices, not noise. A sawtooth stands in for the vocal cords, three formant
-  // filters shape a vowel that changes with every syllable, and the pitch falls over a phrase like speech.
-  const VOWELS = [[800, 1150, 2900], [400, 1600, 2700], [300, 2200, 3000], [450, 800, 2830], [350, 700, 2500], [600, 1000, 2600]];
-  const PITCHES = [105, 118, 128, 190, 205, 225];  // lower and higher voices
-  let room = null;
-  function crowdBus() {  // the voices share a little room: lowpass and a short echo, so they sound a few metres away
-    if (room) return room;
-    room = ctx.createGain(); room.gain.value = 1;
-    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400;
-    const delay = ctx.createDelay(); delay.delayTime.value = 0.085;
-    const fb = ctx.createGain(); fb.gain.value = 0.28;
-    const wet = ctx.createGain(); wet.gain.value = 0.5;
-    room.connect(lp); lp.connect(fxBus);
-    lp.connect(delay); delay.connect(fb).connect(delay); delay.connect(wet).connect(fxBus);
-    return room;
+  // students talking: a recorded loop of real voices (scripts/make_murmur.py), mixed until no word stands out.
+  // One copy plays all the time at the room's level; a second copy at another spot fades in up close
+  // for a moment when someone walks in, so a few voices come nearer and go again.
+  let murmur = null, crowdGain = null, crowdLevel = 0;
+  function loadMurmur() {
+    fetch("/static/audio/murmur.mp3").then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).then(buf => {
+      murmur = buf;
+      crowdGain = ctx.createGain(); crowdGain.gain.value = 0; crowdGain.connect(fxBus);
+      loopFrom(Math.random() * buf.duration, crowdGain);
+      crowdApply();
+    }).catch(() => { /* no murmur, everything else still plays */ });
   }
-  const pick = a => a[Math.floor(Math.random() * a.length)];
-  function voice(t, gain) {  // one short phrase of one person; returns when it ends
-    const f0 = pick(PITCHES) * (0.94 + Math.random() * 0.12), high = f0 > 160;
-    const osc = ctx.createOscillator(), amp = ctx.createGain(), outG = ctx.createGain();
-    osc.type = "sawtooth"; amp.gain.value = 0; outG.gain.value = gain;
-    const forms = [0, 1, 2].map(i => {
-      const f = ctx.createBiquadFilter(), g = ctx.createGain();
-      f.type = "bandpass"; f.Q.value = [6, 9, 12][i]; g.gain.value = [1, 0.5, 0.22][i];
-      amp.connect(f).connect(g).connect(outG);
-      return f;
-    });
-    osc.connect(amp); outG.connect(crowdBus());
-    const n = 3 + Math.floor(Math.random() * 8);
-    let x = t;
-    osc.frequency.setValueAtTime(f0 * 1.12, t);
-    for (let i = 0; i < n; i++) {
-      const len = 0.07 + Math.random() * 0.15, v = pick(VOWELS);
-      forms.forEach((f, k) => f.frequency.setTargetAtTime(v[k] * (high ? 1.15 : 1), x, 0.02));
-      osc.frequency.setTargetAtTime(f0 * (1.12 - 0.22 * i / n + (Math.random() - 0.5) * 0.1), x, 0.04);
-      amp.gain.setTargetAtTime(0.45 + Math.random() * 0.55, x, 0.015);
-      amp.gain.setTargetAtTime(0, x + len, 0.025);
-      if (Math.random() < 0.35) noise(Math.max(t, x - 0.015), 0.04, { filter: "highpass", freq: 3800, gain: gain * 0.25, bus: crowdBus() });
-      x += len + 0.03 + Math.random() * 0.05 + (Math.random() < 0.1 ? 0.22 : 0);
-    }
-    osc.start(t); osc.stop(x + 0.25);
-    return x;
+  function loopFrom(offset, dest) {
+    const src = ctx.createBufferSource();
+    src.buffer = murmur; src.loop = true;
+    src.loopStart = 0.06; src.loopEnd = murmur.duration - 0.06;  // skip the encoder's silence at both ends
+    src.connect(dest); src.start(ctx.currentTime, Math.max(0.06, offset % (murmur.duration - 0.2)));
+    return src;
   }
-  function voices(t, n, gain = 0.5) {  // a few people at once, a little apart
-    for (let i = 0; i < n; i++) voice(t + i * (0.08 + Math.random() * 0.25), gain * (0.6 + Math.random() * 0.5));
+  function crowdApply() {
+    if (crowdGain) crowdGain.gain.setTargetAtTime(state.fx ? crowdLevel * 0.35 : 0, ctx.currentTime, 0.8);
   }
-  // the crowd in the room: a steady background of voices, as loud as the director's level (0 to 1)
-  let crowdLevel = 0, crowdNext = 0;
-  function crowdTick() {
-    if (!ready() || !state.fx || crowdLevel < 0.02) return;
-    const now = ctx.currentTime;
-    if (crowdNext < now) crowdNext = now + 0.05;
-    while (crowdNext < now + 0.6) {
-      voice(crowdNext, 0.22 * crowdLevel * (0.6 + Math.random() * 0.6));
-      crowdNext += (0.18 + Math.random() * 0.35) / Math.max(0.3, crowdLevel);
-    }
+  function voices(t, secs = 2.5, gain = 0.5) {  // a few voices come close for a moment
+    if (!murmur) return;
+    const g = ctx.createGain(), shelf = ctx.createBiquadFilter();
+    shelf.type = "highshelf"; shelf.frequency.value = 2500; shelf.gain.value = 4;  // nearer voices are a little brighter
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.35);
+    g.gain.setTargetAtTime(0.0001, t + secs * 0.6, secs * 0.2);
+    g.connect(shelf).connect(fxBus);
+    const src = loopFrom(Math.random() * murmur.duration, g);
+    src.stop(t + secs + 1);
   }
-  setInterval(crowdTick, 200);
   // a robot "word": quick sine glides like a little droid
   function droid(t, n = 5, gain = 0.12) {
     for (let i = 0; i < n; i++) {
@@ -164,10 +141,10 @@ const Sound = (() => {
     error(t) { tone(110, t, 0.45, { type: "square", gain: 0.08, lowpass: 900 }); tone(104, t, 0.45, { type: "square", gain: 0.08, lowpass: 900 }); },
     alert(t) { [880, 660, 880, 660].forEach((f, i) => tone(f, t + i * 0.16, 0.14, { type: "triangle", gain: 0.12 })); },
     stamp(t) { noise(t, 0.12, { filter: "lowpass", freq: 600, gain: 0.7 }); tone(110, t, 0.15, { to: 55, gain: 0.4 }); },
-    open(t) { bell(1318, t, 0.2); bell(1568, t + 0.14, 0.17); voices(t + 0.4, 3, 0.45); },
+    open(t) { bell(1318, t, 0.2); bell(1568, t + 0.14, 0.17); voices(t + 0.3, 3.5, 0.6); },
     close(t) { bell(1318, t, 0.15); noise(t + 0.6, 0.06, { filter: "highpass", freq: 2000, gain: 0.3 }); tone(220, t + 0.62, 0.08, { gain: 0.15 }); },
-    enter(t) { bell(1760, t, 0.07, 0.6); voices(t + 0.1, 1, 0.5); },
-    join(t) { voices(t, 3, 0.55); tone(660, t, 0.12, { type: "triangle", gain: 0.08 }); tone(990, t + 0.09, 0.15, { type: "triangle", gain: 0.08 }); },
+    enter(t) { bell(1760, t, 0.07, 0.6); voices(t + 0.1, 2.2, 0.35); },
+    join(t) { voices(t, 2.5, 0.4); tone(660, t, 0.12, { type: "triangle", gain: 0.08 }); tone(990, t + 0.09, 0.15, { type: "triangle", gain: 0.08 }); },
     till(t) { noise(t, 0.04, { freq: 3000, gain: 0.15 }); tone(2093, t + 0.03, 0.35, { gain: 0.05 }); tone(2637, t + 0.08, 0.4, { gain: 0.04 }); },
     delivery(t) { noise(t, 1.0, { filter: "lowpass", freq: 180, gain: 0.3, attack: 0.3 });
                   [0.9, 1.15, 1.35].forEach(d => { noise(t + d, 0.12, { filter: "lowpass", freq: 400, gain: 0.45 }); tone(120, t + d, 0.1, { to: 70, gain: 0.2 }); }); },
@@ -233,8 +210,8 @@ const Sound = (() => {
     fx,
     mood(m) { if (m !== mood) { mood = m; musicLevel(); } },
     duck(on) { if (on !== ducked) { ducked = on; musicLevel(); } },
-    set(what, on) { if (state[what] !== on) { state[what] = on; musicLevel(); } },
-    crowd(level) { crowdLevel = Math.max(0, Math.min(1, level)); },  // background voices, 0 to 1
+    set(what, on) { if (state[what] !== on) { state[what] = on; musicLevel(); crowdApply(); } },
+    crowd(level) { const l = Math.max(0, Math.min(1, level)); if (l !== crowdLevel) { crowdLevel = l; if (ctx) crowdApply(); } },  // 0 to 1
     meter() {  // loudness of everything that plays now, for tests (root mean square, 0 to 1)
       if (!ctx) return 0;
       if (!this._an) { this._an = ctx.createAnalyser(); this._an.fftSize = 2048; out.connect(this._an); }

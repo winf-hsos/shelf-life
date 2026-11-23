@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 import os
 import random
 import secrets
@@ -98,6 +99,24 @@ def when(shop: Shop, date: int, kind: str) -> str:
     return "today" if date == shop.day else "tomorrow" if date == shop.day + 1 else DAYS[date % 7][:3]
 
 
+# The director's choices survive a restart (a deploy restarts the server); nothing about players goes in here.
+SETTINGS_FILE = Path(os.environ.get("SHELFLIFE_SETTINGS", "settings.json"))
+# models the key cannot use, with the reason; checked once at start so the director sees it before choosing
+MODEL_PROBLEMS: dict[str, str] = {}
+
+
+def probe_models() -> None:
+    for m in MODELS:
+        problem = check_model(m)
+        if problem:
+            MODEL_PROBLEMS[m] = problem
+        else:
+            MODEL_PROBLEMS.pop(m, None)
+
+
+KEPT = ("mode", "effort", "model", "town", "open_seconds", "step_pause", "budget", "holds")
+
+
 class Live:
     def __init__(self) -> None:
         self.players: dict[str, dict] = {}  # pid -> {"name", "seen"}
@@ -131,6 +150,30 @@ class Live:
         self.control = {"overlay": None, "reveal": False, "tour": None,  # tour: stop of the guided tour, or None
                         "music": True, "fx": True,  # sound on the projector, switched separately
                         "join_url": os.environ.get("SHELFLIFE_PUBLIC_URL")}
+        self.load_settings()
+
+    def load_settings(self) -> None:
+        try:
+            saved = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        for k in KEPT:
+            if k in saved:
+                setattr(self, k, saved[k])
+        for k in ("music", "fx"):
+            if k in saved:
+                self.control[k] = bool(saved[k])
+        if self.model not in MODELS:
+            self.model = MODEL
+        if self.mode == "llm" and not os.environ.get("OPENAI_API_KEY"):
+            self.mode = "rule"
+
+    def save_settings(self) -> None:
+        data = {k: getattr(self, k) for k in KEPT} | {k: self.control[k] for k in ("music", "fx")}
+        try:
+            SETTINGS_FILE.write_text(json.dumps(data, indent=1), encoding="utf-8")
+        except OSError:
+            pass  # the game runs on without remembering
 
     # ------------------------------------------------------------ players
     def join(self, name: str, pid: str | None) -> str:
@@ -728,7 +771,7 @@ def api_view(since: int = 0, epoch: int = 0):
 def status() -> dict:
     shop = live.shop
     return {"phase": live.phase, "paused": live.paused, "fast": live.fast, "mode": live.mode, "effort": live.effort,
-            "model": live.model, "models": MODELS,
+            "model": live.model, "models": MODELS, "model_problems": MODEL_PROBLEMS,
             "has_key": bool(os.environ.get("OPENAI_API_KEY")), "players": len(live.players),
             "day": shop.day if shop else -1, "day_name": DAYS[shop.day] if shop and shop.day >= 0 else None,
             "approval": bool(shop and live.approval_flag(shop)),
@@ -804,6 +847,8 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
                 live.control[k] = bool(body[k])
         if not isinstance(live.control["tour"], int) or isinstance(live.control["tour"], bool):
             live.control["tour"] = None
+        if "music" in body or "fx" in body:
+            live.save_settings()
     elif action == "settings":
         for k, lo, hi in (("open_seconds", 5, 300), ("town", 1, 200)):
             if k in body:
@@ -824,7 +869,9 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
                 raise HTTPException(409, "A model API key is required for the language model.")
             problem = await asyncio.to_thread(check_model, m)
             if problem:
+                MODEL_PROBLEMS[m] = problem
                 raise HTTPException(409, problem)
+            MODEL_PROBLEMS.pop(m, None)
             live.model = m
             if isinstance(live.manager, LLMManager):
                 live.manager.model = m  # from the next request on, even in the middle of the week
@@ -839,6 +886,7 @@ async def admin(action: str, request: Request, x_admin_key: str | None = Header(
                 with LOCK:
                     for h in [*live.shop.flats.values(), *(b for b, _ in live.shop.bots)]:
                         h.budget = max(0.0, round(h.budget + delta, 2))
+        live.save_settings()
     elif action == "reset":
         await live.stop()
         live.shop = live.manager = live.snap = None
@@ -886,6 +934,8 @@ def main() -> None:
     port = int(os.environ.get("PORT", "8010"))
     if not live.control.get("join_url"):
         live.control["join_url"] = f"http://{lan_address()}:{port}/"
+    if os.environ.get("OPENAI_API_KEY"):
+        threading.Thread(target=probe_models, daemon=True).start()
     print(f"Shelf Life on http://localhost:{port}  ·  projector: http://localhost:{port}/beamer#key={ADMIN_KEY}  ·  "
           f"director: http://localhost:{port}/director#key={ADMIN_KEY}", flush=True)
     uvicorn.run(app, host=os.environ.get("HOST", "0.0.0.0"), port=port, log_level="warning", access_log=False)

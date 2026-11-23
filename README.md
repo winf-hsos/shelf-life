@@ -36,6 +36,7 @@ Environment variables:
 | `SHELFLIFE_ADMIN_KEY` | director key; a random one is printed if unset |
 | `SHELFLIFE_MODEL_TIMEOUT` | seconds per model request, default 30 |
 | `SHELFLIFE_PUBLIC_URL` | join link for the QR code; defaults to this computer's LAN address |
+| `SHELFLIFE_SETTINGS` | file that keeps the director's settings across restarts, default `settings.json` in the working directory |
 | `PORT` | default 8010 |
 
 ## Hosting
@@ -58,7 +59,9 @@ First-time setup:
     ssh uberspace-hsos 'uberspace web domain add shelflife.hsos.uber.space'
     ssh uberspace-hsos 'uberspace web backend add shelflife.hsos.uber.space/ port 8030'
 
-For updates, run `sh deploy/deploy.sh`. A restart clears joined phones and the week.
+For updates, run `sh deploy/deploy.sh`. A restart clears joined phones and the week; the director's settings
+(model, mode, effort, timings, budget, town, stops, music and sound effects) stay, because the server keeps them
+in `settings.json`. Nothing about players goes into that file.
 After the lecture: `systemctl --user disable --now shelf-life`.
 
 ## An evening
@@ -106,13 +109,18 @@ H switch the bar between fully open and hidden (the browser remembers this).
 
 *Sound* has two separate switches, *Music* and *Sound effects*, on `/director` and on the projector (M, S);
 both pages share them. It plays only on the projector page opened with the director key, so a student who opens `/beamer`
-on a laptop hears nothing. Everything is synthesised in the browser (`static/sound.js`, Web Audio), without
-audio files or network: a slow lo-fi loop that gets drums while the shop is open and fades back during a
+on a laptop hears nothing. Almost everything is synthesised in the browser (`static/sound.js`, Web Audio): a slow lo-fi loop that gets drums while the shop is open and fades back during a
 pause or the tour; a robot chirp when the agent wakes and its own sound for every tool; a shop bell; students
-talking (synthetic voices with changing vowels, not noise) in the background while the shop is open,
-up close when a customer walks in, and in the lobby the louder the more phones have joined; the
+talking in the background while the shop is open, a few voices coming closer when a customer walks in, and in
+the lobby the louder the more phones have joined; the
 till, the delivery van, the owner's alert and stamp, a drum roll for the ranking. Browsers start audio
 only after a click or key press on the page.
+
+The students' murmur is the one recording, `static/audio/murmur.mp3`, a seamless 48-second loop.
+`scripts/make_murmur.py` made it: a text-to-speech model (OpenAI) read 26 everyday lines, German and English,
+in eleven voices, and the script spread ten speakers over the loop at different distances with a little room
+echo, so that the room is heard and hardly a word. Run it again to change the lines (needs `OPENAI_API_KEY`
+and ffmpeg; the clips are cached in `runs/murmur/`).
 
 *Context* (C, or the dashed button after the agent's tools) shows the request the model receives, as JSON
 for the Responses API: model, instructions, the eleven tools, and the input of this evening, which grows by
@@ -128,8 +136,9 @@ tool, an example call and its answer; the tool lights up, and the arrow keys pag
   *Reject* on the projector or the director's phone.
 - **Injection:** the day on which the food bank's confirmation page carries the hidden text (default
   Friday). It is set only on `/director`, so the room never sees it on the projector.
-- **Language model:** chosen on `/director` from `SHELFLIFE_MODELS`. Each choice is tried with a short
-  request first; a model the key cannot use is refused with the reason, and the old one stays.
+- **Language model:** chosen on `/director` from `SHELFLIFE_MODELS`. At start the server tries each one with a
+  short request; a model the key cannot use is greyed out, with the reason below the choice. A choice is tried
+  once more before it is used.
 - **Model outage:** if the language model does not answer (30 s per request, one retry), the check-in
   ends undone and the projector says so; the evening goes on without the agent. Every later check-in
   tries again.
@@ -150,9 +159,11 @@ Phones that join while the week runs replace a simulated student. Phones that ha
 | `static/` | the three pages and the images |
 | `static/img/src/` | the generated originals with their prompts (`.prompt.txt`); `scripts/prepare_images.py` makes the web versions (needs Pillow) |
 
-`scripts/run_week.py` plays a week without a browser, for calibration.
+`scripts/run_week.py` plays a week without a browser, for calibration. `scripts/make_murmur.py` makes the
+students' murmur.
 
-The images are AI-generated (GPT-Image 2.5) and carry C2PA metadata.
+The images are AI-generated (GPT-Image 2.5) and carry C2PA metadata. The voices in the murmur are AI-generated
+(OpenAI text-to-speech).
 
 ## Licence
 
