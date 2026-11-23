@@ -32,7 +32,7 @@ Environment variables:
 |---|---|
 | `OPENAI_API_KEY` | key for the language model; without it only the fixed rule runs |
 | `SHELFLIFE_MODEL` | model name, default `gpt-6-luna` |
-| `SHELFLIFE_MODELS` | models the director may choose from, comma-separated, default `gpt-6-luna,gpt-6-sol,gpt-6-terra` |
+| `SHELFLIFE_MODELS` | models the director may choose from, comma-separated, default `gpt-6-luna,gpt-6.2-sol,gpt-6.1-terra` |
 | `SHELFLIFE_ADMIN_KEY` | director key; a random one is printed if unset |
 | `SHELFLIFE_MODEL_TIMEOUT` | seconds per model request, default 30 |
 | `SHELFLIFE_PUBLIC_URL` | join link for the QR code; defaults to this computer's LAN address |

@@ -15,7 +15,7 @@ from .shop import GOAL, MARKDOWNS, PRODUCTS, Shop, next_open
 
 MODEL = os.environ.get("SHELFLIFE_MODEL", "gpt-6-luna")
 # the models the director can choose from; each is checked with a short request before it is used
-MODELS = [m.strip() for m in os.environ.get("SHELFLIFE_MODELS", "gpt-6-luna,gpt-6-sol,gpt-6-terra").split(",") if m.strip()]
+MODELS = [m.strip() for m in os.environ.get("SHELFLIFE_MODELS", "gpt-6-luna,gpt-6.2-sol,gpt-6.1-terra").split(",") if m.strip()]
 MAX_CALLS = 14
 TIMEOUT = float(os.environ.get("SHELFLIFE_MODEL_TIMEOUT", "30"))  # seconds per model request
 DOWN_TEXT = "No answer from the language model. No model, no agent: this check-in stays undone."
