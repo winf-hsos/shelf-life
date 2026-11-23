@@ -98,3 +98,7 @@ Phones that join while the week runs replace a simulated student. Phones that ha
 `scripts/run_week.py` plays a week without a browser, for calibration.
 
 The images are AI-generated (GPT-Image 2.5) and carry C2PA metadata.
+
+## Licence
+
+MIT, see `LICENSE`.
