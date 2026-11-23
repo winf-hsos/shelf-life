@@ -1045,12 +1045,6 @@ function playSounds(v, reset) {
   // music: livelier while the shop is open, quieter during a pause and the guided tour
   Sound.mood(phase === "open" ? "open" : "calm");
   Sound.duck(v.paused || Number.isInteger(v.control.tour));
-  // students talking in the shop while it is open, and in the lobby the more the more have joined;
-  // quiet during a pause and the tour, when the lecturer talks
-  const talk = v.paused || Number.isInteger(v.control.tour) ? 0
-    : phase === "open" ? 0.35 + Math.min(0.4, walkers * 0.07)
-    : phase === "lobby" ? Math.min(0.6, v.players * 0.05) : 0;
-  Sound.crowd(talk);
   Sound.set("music", v.control.music !== false);
   Sound.set("fx", v.control.fx !== false);
   $("dMusic").classList.toggle("on", Sound.on.music);

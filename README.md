@@ -109,18 +109,11 @@ H switch the bar between fully open and hidden (the browser remembers this).
 
 *Sound* has two separate switches, *Music* and *Sound effects*, on `/director` and on the projector (M, S);
 both pages share them. It plays only on the projector page opened with the director key, so a student who opens `/beamer`
-on a laptop hears nothing. Almost everything is synthesised in the browser (`static/sound.js`, Web Audio): a slow lo-fi loop that gets drums while the shop is open and fades back during a
-pause or the tour; a robot chirp when the agent wakes and its own sound for every tool; a shop bell; students
-talking in the background while the shop is open, a few voices coming closer when a customer walks in, and in
-the lobby the louder the more phones have joined; the
-till, the delivery van, the owner's alert and stamp, a drum roll for the ranking. Browsers start audio
-only after a click or key press on the page.
-
-The students' murmur is the one recording, `static/audio/murmur.mp3`, a seamless 48-second loop.
-`scripts/make_murmur.py` made it: a text-to-speech model (OpenAI) read 26 everyday lines, German and English,
-in eleven voices, and the script spread ten speakers over the loop at different distances with a little room
-echo, so that the room is heard and hardly a word. Run it again to change the lines (needs `OPENAI_API_KEY`
-and ffmpeg; the clips are cached in `runs/murmur/`).
+on a laptop hears nothing. Everything is synthesised in the browser (`static/sound.js`, Web Audio), without
+audio files or network: a slow lo-fi loop that gets drums while the shop is open and fades back during a
+pause or the tour; a robot chirp when the agent wakes and its own sound for every tool; a shop bell
+when the shop opens and a little one when a customer walks in; the till, the delivery van, the owner's
+alert and stamp, a drum roll for the ranking. Browsers start audio only after a click or key press on the page.
 
 *Context* (C, or the dashed button after the agent's tools) shows the request the model receives, as JSON
 for the Responses API: model, instructions, the eleven tools, and the input of this evening, which grows by
@@ -159,11 +152,9 @@ Phones that join while the week runs replace a simulated student. Phones that ha
 | `static/` | the three pages and the images |
 | `static/img/src/` | the generated originals with their prompts (`.prompt.txt`); `scripts/prepare_images.py` makes the web versions (needs Pillow) |
 
-`scripts/run_week.py` plays a week without a browser, for calibration. `scripts/make_murmur.py` makes the
-students' murmur.
+`scripts/run_week.py` plays a week without a browser, for calibration.
 
-The images are AI-generated (GPT-Image 2.5) and carry C2PA metadata. The voices in the murmur are AI-generated
-(OpenAI text-to-speech).
+The images are AI-generated (GPT-Image 2.5) and carry C2PA metadata.
 
 ## Licence
 
